@@ -73,6 +73,35 @@ function avatarUrl(string $file): string {
     return '/dmc/assets/img/avatars/' . $file;
 }
 
+/* ── Insurance ── */
+function applyInsuranceToInvoice(int $invId, int $patientId, float $total): float {
+    $patient  = row("SELECT insurance_provider FROM patients WHERE id=?", [$patientId]);
+    $provider = $patient['insurance_provider'] ?? '';
+
+    if (!$provider || $provider === 'PRIVATE') {
+        execute("UPDATE invoices SET patient_amount=? WHERE id=?", [$total, $invId]);
+        return $total;
+    }
+
+    $ins = row("SELECT * FROM insurance_providers WHERE name=? AND is_active=1", [$provider]);
+    if (!$ins) {
+        execute("UPDATE invoices SET patient_amount=? WHERE id=?", [$total, $invId]);
+        return $total;
+    }
+
+    $insAmount = round($total * ((int)$ins['coverage_percentage'] / 100), 2);
+    $patAmount = round($total - $insAmount, 2);
+
+    execute("UPDATE invoices SET patient_amount=?, balance=? WHERE id=?", [$patAmount, $patAmount, $invId]);
+    execute(
+        "INSERT INTO insurance_claims (invoice_id,patient_id,insurance_provider,total_amount,insurance_amount,patient_amount,insurance_status)
+         VALUES (?,?,?,?,?,?,'pending')",
+        [$invId, $patientId, $provider, $total, $insAmount, $patAmount]
+    );
+
+    return $patAmount;
+}
+
 /* ── Setting helper ── */
 function setting(string $key, string $default = ''): string {
     static $cache = [];

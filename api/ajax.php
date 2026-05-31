@@ -49,33 +49,13 @@ function collectPayment(array $b): void {
     if ($patAcct < 0.01) jsonErr('Patient account has no outstanding balance.');
     if ($amount > $patAcct + 0.01) jsonErr('Amount (RWF '.number_format($amount).') exceeds patient account balance (RWF '.number_format($patAcct).').');
 
-    /* also cannot exceed the specific invoice remaining */
+    /* patient portion = patient_amount if set (insurance applied), otherwise full total */
+    $patientPortion = $inv['patient_amount'] !== null ? (float)$inv['patient_amount'] : (float)$inv['total'];
+
+    /* cannot exceed the specific invoice patient remaining */
     $alreadyPaid = (float)scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=? AND status='success'", [$invoiceId]);
-    $invBalance  = max(0, (float)$inv['total'] - $alreadyPaid);
+    $invBalance  = max(0, $patientPortion - $alreadyPaid);
     if ($amount > $invBalance + 0.01) jsonErr('Amount exceeds this invoice balance (RWF '.number_format($invBalance).').');
-
-    /* ──── INSURANCE COVERAGE LOGIC ──── */
-    $insuranceProvider = $patient['insurance_provider'] ?? null;
-    $insuranceAmount = 0;
-    $patientPaymentAmount = $amount;
-
-    if ($insuranceProvider && $insuranceProvider !== 'PRIVATE') {
-        $insurance = row("SELECT * FROM insurance_providers WHERE name = ? AND is_active = 1", [$insuranceProvider]);
-        if ($insurance) {
-            $coveragePercent = (int)($insurance['coverage_percentage'] ?? 80);
-            $insuranceAmount = round($amount * ($coveragePercent / 100), 2);
-            $patientPaymentAmount = $amount - $insuranceAmount;
-
-            /* create insurance claim if insurance portion exists */
-            if ($insuranceAmount > 0) {
-                execute(
-                    "INSERT INTO insurance_claims (invoice_id, patient_id, insurance_provider, total_amount, insurance_amount, patient_amount, insurance_status)
-                     VALUES (?,?,?,?,?,?,'pending')",
-                    [$invoiceId, $patientId, $insuranceProvider, $amount, $insuranceAmount, $patientPaymentAmount]
-                );
-            }
-        }
-    }
 
     $status = in_array($method, ['momo_mtn','momo_airtel','card']) && $flwTxid ? 'success' : 'success';
     if (in_array($method, ['insurance','bank_transfer'])) $status = 'pending';
@@ -87,9 +67,9 @@ function collectPayment(array $b): void {
         [$payNo, $invoiceId, $patientId, $amount, $method, $status, $flwTxid, $flwRef, $notes, currentUserId()]
     );
 
-    /* recalculate this invoice */
+    /* recalculate this invoice against patient portion */
     $paid      = (float)scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=? AND status='success'", [$invoiceId]);
-    $bal       = max(0, (float)$inv['total'] - $paid);
+    $bal       = max(0, $patientPortion - $paid);
     $newStatus = $bal <= 0 ? 'paid' : ($paid > 0 ? 'partial' : 'issued');
     execute("UPDATE invoices SET paid=?, balance=?, status=? WHERE id=?", [$paid, $bal, $newStatus, $invoiceId]);
 
@@ -101,15 +81,10 @@ function collectPayment(array $b): void {
 
     /* send SMS receipt */
     if ($status === 'success') {
-        $receiptMsg = ['amount' => $amount, 'invoice_no' => $inv['invoice_no'], 'payment_no' => $payNo];
-        if ($insuranceAmount > 0) {
-            $receiptMsg['insurance_amount'] = $insuranceAmount;
-            $receiptMsg['patient_amount'] = $patientPaymentAmount;
-        }
-        sendPaymentSMS($patient, $receiptMsg);
+        sendPaymentSMS($patient, ['amount' => $amount, 'invoice_no' => $inv['invoice_no'], 'payment_no' => $payNo]);
     }
 
-    audit('collect_payment', 'payments', $payId, "Collected $amount via $method (Insurance: $insuranceAmount, Patient: $patientPaymentAmount) for invoice {$inv['invoice_no']}");
+    audit('collect_payment', 'payments', $payId, "Collected $amount via $method for invoice {$inv['invoice_no']}");
     jsonOk(['payment_no' => $payNo, 'new_balance' => $bal, 'invoice_status' => $newStatus, 'patient_balance' => $patientBalance,
             'insurance_amount' => $insuranceAmount, 'patient_amount' => $patientPaymentAmount]);
 }
@@ -196,7 +171,8 @@ function dispenseMedicine(array $b): void {
                 [$invId, $item['med_name'], $item['quantity'], $item['selling_price'], $line]
             );
         }
-        execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$rxTotal, $rx['patient_id']]);
+        $patRxTotal = applyInsuranceToInvoice($invId, $rx['patient_id'], $rxTotal);
+        execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$patRxTotal, $rx['patient_id']]);
         audit('auto_invoice_rx', 'invoices', $invId, "Auto-invoice $invNo for prescription {$rx['prescription_no']}");
     }
     audit('dispense_prescription', 'prescriptions', $rxId, "Dispensed prescription {$rx['prescription_no']}");
@@ -284,7 +260,8 @@ function payAllInvoices(array $b): void {
             "SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=? AND status='success'",
             [$inv['id']]
         );
-        $invBalance = max(0, (float)$inv['total'] - $alreadyPaid);
+        $patPortion = $inv['patient_amount'] !== null ? (float)$inv['patient_amount'] : (float)$inv['total'];
+        $invBalance = max(0, $patPortion - $alreadyPaid);
         if ($invBalance < 0.01) continue;
 
         $payThis = min($remaining, $invBalance);
@@ -296,7 +273,7 @@ function payAllInvoices(array $b): void {
         );
 
         $newPaid    = $alreadyPaid + $payThis;
-        $newBalance = max(0, (float)$inv['total'] - $newPaid);
+        $newBalance = max(0, $patPortion - $newPaid);
         $newStatus  = $newBalance <= 0 ? 'paid' : 'partial';
         execute("UPDATE invoices SET paid=?, balance=?, status=? WHERE id=?",
                 [$newPaid, $newBalance, $newStatus, $inv['id']]);

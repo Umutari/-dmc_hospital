@@ -34,7 +34,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     [$invId, $t['name'].' (Lab Test)', $t['price'], $t['price']]
                 );
             }
-            execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$labTotal, $patientId]);
+            $patLabTotal = applyInsuranceToInvoice($invId, $patientId, $labTotal);
+            execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$patLabTotal, $patientId]);
             audit('auto_invoice_lab', 'invoices', $invId, "Auto-invoice $invNo for lab order $no");
         }
 

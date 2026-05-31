@@ -9,12 +9,17 @@ $patient = row("SELECT * FROM patients WHERE email=?", [$user['email'] ?? '']);
 if (!$patient) $patient = row("SELECT * FROM patients WHERE phone=?", [$user['phone'] ?? '']);
 $pid = $patient['id'] ?? 0;
 
-/* invoices with real paid sum from payments table */
+/* invoices with paid sum and insurance claim info */
 $invoices = $pid ? rows("
     SELECT i.*,
-           COALESCE(SUM(CASE WHEN py.status='success' THEN py.amount ELSE 0 END),0) AS actual_paid
+           COALESCE(SUM(CASE WHEN py.status='success' THEN py.amount ELSE 0 END),0) AS actual_paid,
+           ic.insurance_amount AS claim_ins_amount,
+           ic.patient_amount   AS claim_pat_amount,
+           ic.insurance_provider AS claim_provider,
+           ic.insurance_status AS claim_status
     FROM invoices i
     LEFT JOIN payments py ON py.invoice_id = i.id
+    LEFT JOIN insurance_claims ic ON ic.invoice_id = i.id
     WHERE i.patient_id = ?
     GROUP BY i.id
     ORDER BY i.created_at DESC", [$pid]) : [];
@@ -39,11 +44,16 @@ $allItems = $pid ? rows("
 $payByInv  = []; foreach ($allPay   as $p)  $payByInv[$p['invoice_id']][]  = $p;
 $itemsByInv = []; foreach ($allItems as $it) $itemsByInv[$it['invoice_id']][] = $it;
 
-/* summary stats */
+/* summary stats — use patient portion (patient_amount), not full total */
 $totalBilled = array_sum(array_column($invoices, 'total'));
 $totalPaid   = array_sum(array_column($invoices, 'actual_paid'));
-$totalOwed   = max(0, $totalBilled - $totalPaid);
-$pendingCnt  = count(array_filter($invoices, fn($i) => ($i['total'] - $i['actual_paid']) > 0.009));
+$totalOwed   = 0;
+foreach ($invoices as $inv) {
+    $pp  = $inv['patient_amount'] !== null ? (float)$inv['patient_amount'] : (float)$inv['total'];
+    $due = max(0, $pp - (float)$inv['actual_paid']);
+    if (!in_array($inv['status'], ['paid','cancelled'])) $totalOwed += $due;
+}
+$pendingCnt = count(array_filter($invoices, fn($i) => !in_array($i['status'], ['paid','cancelled'])));
 
 $FLW_KEY  = setting('flw_public_key');
 $patName  = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
@@ -109,11 +119,13 @@ include __DIR__ . '/../includes/header.php'; ?>
 <?php endif; ?>
 
 <?php foreach ($invoices as $inv):
-    $due      = max(0, (float)$inv['total'] - (float)$inv['actual_paid']);
-    $canPay   = $due > 0.009 && !in_array($inv['status'], ['paid','cancelled']);
-    $invPays  = $payByInv[$inv['id']] ?? [];
-    $invItems = $itemsByInv[$inv['id']] ?? [];
-    $pct      = $inv['total'] > 0 ? min(100, round($inv['actual_paid'] / $inv['total'] * 100)) : 0;
+    $patPortion = $inv['patient_amount'] !== null ? (float)$inv['patient_amount'] : (float)$inv['total'];
+    $insAmount  = $inv['claim_ins_amount'] !== null ? (float)$inv['claim_ins_amount'] : 0;
+    $due        = max(0, $patPortion - (float)$inv['actual_paid']);
+    $canPay     = $due > 0.009 && !in_array($inv['status'], ['paid','cancelled']);
+    $invPays    = $payByInv[$inv['id']] ?? [];
+    $invItems   = $itemsByInv[$inv['id']] ?? [];
+    $pct        = $patPortion > 0 ? min(100, round((float)$inv['actual_paid'] / $patPortion * 100)) : 0;
     $statusColor = ['paid'=>'var(--success)','partial'=>'var(--warning)','issued'=>'var(--danger)','cancelled'=>'var(--muted)'][$inv['status']] ?? 'var(--muted)';
 ?>
 <div class="dmc-card mb-3" id="inv-<?= $inv['id'] ?>">
@@ -142,24 +154,59 @@ include __DIR__ . '/../includes/header.php'; ?>
     <div style="width:<?= $pct ?>%;height:6px;border-radius:4px;background:<?= $pct>=100?'var(--success)':($pct>0?'var(--warning)':'var(--danger)') ?>;transition:width .4s"></div>
   </div>
 
+  <!-- Insurance badge -->
+  <?php if ($insAmount > 0): ?>
+  <div class="mb-3 p-2 rounded d-flex align-items-center gap-2" style="background:#e8f5e9;border-left:3px solid var(--success);font-size:12px">
+    <i class="bi bi-shield-check" style="color:var(--success);font-size:16px"></i>
+    <div>
+      <strong><?= e($inv['claim_provider']) ?></strong> covers
+      <strong style="color:var(--success)"><?= money($insAmount) ?></strong>
+      — you only pay <strong style="color:var(--danger)"><?= money($patPortion) ?></strong>
+      <span style="color:var(--muted);font-size:10px">(claim: <?= ucfirst($inv['claim_status'] ?? 'pending') ?>)</span>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <!-- Amount breakdown -->
   <div class="row g-2 mb-3">
-    <div class="col-4">
+    <div class="col-3">
       <div class="p-2 rounded text-center" style="background:var(--bg)">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total</div>
-        <div style="font-weight:700;font-size:14px"><?= money($inv['total']) ?></div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Total Bill</div>
+        <div style="font-weight:700;font-size:13px"><?= money($inv['total']) ?></div>
       </div>
     </div>
-    <div class="col-4">
+    <?php if ($insAmount > 0): ?>
+    <div class="col-3">
+      <div class="p-2 rounded text-center" style="background:#e8f5e9">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Insurance</div>
+        <div style="font-weight:700;font-size:13px;color:var(--success)">-<?= money($insAmount) ?></div>
+      </div>
+    </div>
+    <div class="col-3">
+      <div class="p-2 rounded text-center" style="background:#fff8e1">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Your Share</div>
+        <div style="font-weight:700;font-size:13px;color:#e65100"><?= money($patPortion) ?></div>
+      </div>
+    </div>
+    <?php else: ?>
+    <div class="col-3">
+      <div class="p-2 rounded text-center" style="background:var(--bg)">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Insurance</div>
+        <div style="font-weight:700;font-size:13px;color:var(--muted)">—</div>
+      </div>
+    </div>
+    <div class="col-3"></div>
+    <?php endif; ?>
+    <div class="col-3">
       <div class="p-2 rounded text-center" style="background:var(--bg)">
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Paid</div>
-        <div style="font-weight:700;font-size:14px;color:var(--success)"><?= money($inv['actual_paid']) ?></div>
+        <div style="font-weight:700;font-size:13px;color:var(--success)"><?= money($inv['actual_paid']) ?></div>
       </div>
     </div>
-    <div class="col-4">
+    <div class="col-3">
       <div class="p-2 rounded text-center" style="background:var(--bg)">
-        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Balance</div>
-        <div style="font-weight:700;font-size:14px;color:<?= $due>0?'var(--danger)':'var(--success)' ?>">
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">You Owe</div>
+        <div style="font-weight:700;font-size:13px;color:<?= $due>0?'var(--danger)':'var(--success)' ?>">
           <?= $due > 0 ? money($due) : '<i class="bi bi-check2-circle"></i> Cleared' ?>
         </div>
       </div>
@@ -241,7 +288,7 @@ include __DIR__ . '/../includes/header.php'; ?>
         <div style="font-size:11px;color:var(--muted)">Outstanding balance</div>
         <div style="font-weight:700;font-size:18px;color:var(--danger)"><?= money($due) ?></div>
       </div>
-      <button onclick="openPayModal(<?= $inv['id'] ?>, <?= $inv['patient_id'] ?>, <?= $due ?>)"
+      <button onclick="openPayModal(<?= $inv['id'] ?>, <?= $inv['patient_id'] ?>, <?= round($due, 2) ?>)"
               class="btn-dmc px-4" style="font-size:13px">
         <i class="bi bi-wallet2 me-1"></i>Make Payment
       </button>
