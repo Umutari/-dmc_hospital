@@ -59,7 +59,7 @@ include __DIR__ . '/../includes/header.php'; ?>
   </div>
   <div class="text-end">
     <div style="font-size:24px;font-weight:800"><?= money($patBalance) ?></div>
-    <a href="/dmc/patient/invoices.php" class="btn btn-sm btn-light mt-1" style="font-size:11px;color:#b91c1c;font-weight:700">Pay Now</a>
+    <a href="/dmc/patient/invoices.php?payall=1" class="btn btn-sm btn-light mt-1" style="font-size:11px;color:#b91c1c;font-weight:700">Pay Now</a>
   </div>
 </div>
 <?php else: ?>

@@ -61,6 +61,23 @@ include __DIR__ . '/../includes/header.php'; ?>
 
 <?= showFlash('main') ?>
 
+<?php if ($totalOwed > 0): ?>
+<div class="d-flex align-items-center justify-content-between p-3 mb-3 rounded-3"
+     style="background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff">
+  <div>
+    <div style="font-weight:700;font-size:16px">Total Outstanding Balance</div>
+    <div style="font-size:12px;opacity:.85"><?= $pendingCnt ?> unpaid invoice<?= $pendingCnt!=1?'s':'' ?> — pay all at once</div>
+  </div>
+  <div class="text-end">
+    <div style="font-size:22px;font-weight:800"><?= money($totalOwed) ?></div>
+    <button onclick="openPayAllModal()" class="btn btn-light btn-sm mt-1"
+            style="font-size:12px;font-weight:700;color:#b91c1c">
+      <i class="bi bi-wallet2 me-1"></i>Pay All Now
+    </button>
+  </div>
+</div>
+<?php endif; ?>
+
 <!-- Summary cards -->
 <div class="row g-3 mb-4">
   <div class="col-sm-4">
@@ -326,10 +343,13 @@ include __DIR__ . '/../includes/header.php'; ?>
 </div>
 
 <?php
-$FLW_KEY_JS  = addslashes($FLW_KEY);
-$patNameJS   = addslashes($patName);
-$patEmailJS  = addslashes($patEmail);
-$patPhoneJS  = addslashes($patPhone);
+$FLW_KEY_JS    = addslashes($FLW_KEY);
+$patNameJS     = addslashes($patName);
+$patEmailJS    = addslashes($patEmail);
+$patPhoneJS    = addslashes($patPhone);
+$totalOwedJs   = (int)$totalOwed;
+$pidJs         = (int)$pid;
+$autoOpenJs    = (!empty($_GET['payall']) && $totalOwed > 0) ? 'true' : 'false';
 $extraScripts = "<script src='https://checkout.flutterwave.com/v3.js'></script>
 <script>
 const FLW_KEY   = '$FLW_KEY_JS';
@@ -337,7 +357,7 @@ const PAT_NAME  = '$patNameJS';
 const PAT_EMAIL = '$patEmailJS';
 const PAT_PHONE = '$patPhoneJS';
 
-let _invId = 0, _patId = 0, _maxDue = 0;
+let _invId = 0, _patId = 0, _maxDue = 0, _payAll = false;
 
 /* highlight selected method label */
 document.querySelectorAll('[name=payMethod]').forEach(r => {
@@ -353,9 +373,22 @@ function openPayModal(invoiceId, patientId, due) {
   _invId  = invoiceId;
   _patId  = patientId;
   _maxDue = due;
+  _payAll = false;
   document.getElementById('modalBalance').textContent = 'RWF ' + due.toLocaleString();
   document.getElementById('payAmountInput').value = due;
   document.getElementById('payAmountInput').max   = due;
+  document.getElementById('amountError').style.display = 'none';
+  new bootstrap.Modal(document.getElementById('payModal')).show();
+}
+
+function openPayAllModal() {
+  _invId  = 0;
+  _patId  = $pidJs;
+  _maxDue = $totalOwedJs;
+  _payAll = true;
+  document.getElementById('modalBalance').textContent = 'RWF ' + ($totalOwedJs).toLocaleString();
+  document.getElementById('payAmountInput').value = $totalOwedJs;
+  document.getElementById('payAmountInput').max   = $totalOwedJs;
   document.getElementById('amountError').style.display = 'none';
   new bootstrap.Modal(document.getElementById('payModal')).show();
 }
@@ -389,23 +422,28 @@ function proceedPayment() {
     customer: { email: PAT_EMAIL, phone_number: PAT_PHONE, name: PAT_NAME },
     customizations: { title: 'DMC Hospital', description: 'Invoice payment — RWF '+amount.toLocaleString() },
     callback: function(res) {
-      /* use Flutterwave's actual charged amount, not what we sent */
       const charged = parseFloat(res.amount) || amount;
+      const mthd    = method === 'card' ? 'card' : 'momo_mtn';
+      const payload = _payAll
+        ? { action:'pay_all_invoices', patient_id:_patId, amount:charged, method:mthd,
+            flw_txid:res.transaction_id, flw_ref:res.flw_ref }
+        : { action:'collect_payment',  invoice_id:_invId, patient_id:_patId, amount:charged,
+            method:mthd, flw_txid:res.transaction_id, flw_ref:res.flw_ref, otp_verified:1 };
+
       fetch('/dmc/api/ajax.php', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({
-          action:'collect_payment', invoice_id:_invId, patient_id:_patId,
-          amount: charged,
-          method: method==='card' ? 'card' : 'momo_mtn',
-          flw_txid: res.transaction_id, flw_ref: res.flw_ref, otp_verified: 1
-        })
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
       }).then(r=>r.json()).then(j=>{
         if (j.ok) {
-          const remaining = j.new_balance || 0;
+          const remaining = _payAll ? (j.patient_balance||0) : (j.new_balance||0);
+          const detail    = _payAll
+            ? 'Invoices cleared: <strong>'+j.invoices_cleared.join(', ')+'</strong><br>'
+            : '';
           Swal.fire({
             icon:'success', title:'Payment Successful!',
             html:'<div style=\"font-size:13px;line-height:1.8\">' +
                  'Amount paid: <strong style=\"color:#065f46\">RWF '+charged.toLocaleString()+'</strong><br>' +
+                 detail +
                  'Remaining balance: <strong style=\"color:'+(remaining>0?'#dc2626':'#065f46')+'\">RWF '+remaining.toLocaleString()+'</strong><br>' +
                  '<span style=\"font-size:11px;color:#888\">Ref: '+res.flw_ref+'</span></div>',
             confirmButtonColor:'#0A2342'
@@ -424,5 +462,7 @@ function proceedPayment() {
 function printReceipt(invoiceId) {
   window.open('/dmc/patient/receipt.php?invoice_id='+invoiceId,'_blank','width=700,height=600');
 }
+
+if ($autoOpenJs) document.addEventListener('DOMContentLoaded', function(){ openPayAllModal(); });
 </script>";
 include __DIR__ . '/../includes/footer.php';

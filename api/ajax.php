@@ -11,6 +11,7 @@ function jsonErr(string $msg): void      { echo json_encode(['ok' => false, 'err
 
 match($action) {
     'collect_payment'    => collectPayment($body),
+    'pay_all_invoices'   => payAllInvoices($body),
     'mark_all_read'      => markAllRead(),
     'mark_read'          => markRead($body),
     'cancel_appointment' => cancelAppt($body),
@@ -249,6 +250,80 @@ function deleteInvoiceItem(array $b): void {
     $paid     = (float)scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=? AND status='success'", [$item['invoice_id']]);
     execute("UPDATE invoices SET total=?, balance=? WHERE id=?", [$newTotal, max(0,$newTotal-$paid), $item['invoice_id']]);
     jsonOk(['new_total' => $newTotal]);
+}
+
+/* ─────────────────────────────── BULK PAYMENT ───────────────────────── */
+function payAllInvoices(array $b): void {
+    requireRoles(['accountant','admin','patient']);
+    $patientId = (int)($b['patient_id'] ?? 0);
+    $amount    = (float)($b['amount'] ?? 0);
+    $method    = trim($b['method'] ?? 'cash');
+    $flwTxid   = trim($b['flw_txid'] ?? '');
+    $flwRef    = trim($b['flw_ref'] ?? '');
+
+    if (!$patientId || $amount < 1) jsonErr('Invalid payment data.');
+
+    $patient = row("SELECT * FROM patients WHERE id=?", [$patientId]);
+    if (!$patient) jsonErr('Patient not found.');
+
+    /* get all unpaid invoices oldest-first */
+    $invoices = rows(
+        "SELECT * FROM invoices WHERE patient_id=? AND status NOT IN ('paid','cancelled') ORDER BY created_at ASC",
+        [$patientId]
+    );
+    if (!$invoices) jsonErr('No outstanding invoices found.');
+
+    $remaining     = $amount;
+    $totalApplied  = 0;
+    $invoicesPaid  = [];
+
+    foreach ($invoices as $inv) {
+        if ($remaining < 0.01) break;
+
+        $alreadyPaid = (float)scalar(
+            "SELECT COALESCE(SUM(amount),0) FROM payments WHERE invoice_id=? AND status='success'",
+            [$inv['id']]
+        );
+        $invBalance = max(0, (float)$inv['total'] - $alreadyPaid);
+        if ($invBalance < 0.01) continue;
+
+        $payThis = min($remaining, $invBalance);
+        $payNo   = generateNo('DMC-PAY', 'payments', 'payment_no');
+        $payId   = execute(
+            "INSERT INTO payments (payment_no,invoice_id,patient_id,amount,method,status,flw_transaction_id,flw_ref,paid_at,collected_by)
+             VALUES (?,?,?,?,?,'success',?,?,NOW(),?)",
+            [$payNo, $inv['id'], $patientId, $payThis, $method, $flwTxid, $flwRef, currentUserId()]
+        );
+
+        $newPaid    = $alreadyPaid + $payThis;
+        $newBalance = max(0, (float)$inv['total'] - $newPaid);
+        $newStatus  = $newBalance <= 0 ? 'paid' : 'partial';
+        execute("UPDATE invoices SET paid=?, balance=?, status=? WHERE id=?",
+                [$newPaid, $newBalance, $newStatus, $inv['id']]);
+
+        audit('bulk_payment', 'payments', $payId,
+              "Bulk pay RWF $payThis via $method for invoice {$inv['invoice_no']}");
+
+        $remaining    -= $payThis;
+        $totalApplied += $payThis;
+        $invoicesPaid[] = $inv['invoice_no'];
+    }
+
+    /* deduct from patient account balance */
+    execute("UPDATE patients SET balance = GREATEST(0, balance - ?) WHERE id=?", [$totalApplied, $patientId]);
+    $patientBalance = (float)scalar("SELECT balance FROM patients WHERE id=?", [$patientId]);
+
+    sendPaymentSMS($patient, [
+        'amount'     => $totalApplied,
+        'invoice_no' => implode(', ', $invoicesPaid),
+        'payment_no' => 'BULK',
+    ]);
+
+    jsonOk([
+        'total_paid'      => $totalApplied,
+        'invoices_cleared' => $invoicesPaid,
+        'patient_balance' => $patientBalance,
+    ]);
 }
 
 /* ─────────────────────────────── SEARCH ─────────────────────────────── */
