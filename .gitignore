@@ -1,0 +1,13 @@
+# Database credentials
+config/db.php
+
+# Session / curl cookies
+cookiejar.txt
+
+# Debug & temp logs
+*.log
+tmp_*.log
+
+# OS
+Thumbs.db
+.DS_Store
