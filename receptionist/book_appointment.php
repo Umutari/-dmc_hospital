@@ -20,9 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($date < date('Y-m-d')) {
         $error = 'Appointment date cannot be in the past.';
     } else {
+        /* check daily capacity */
+        $dayCount = (int)scalar("SELECT COUNT(*) FROM appointments WHERE doctor_id=? AND appointment_date=? AND status!='cancelled'", [$doctorId, $date]);
         /* check for double-booking */
         $clash = scalar("SELECT COUNT(*) FROM appointments WHERE doctor_id=? AND appointment_date=? AND appointment_time=? AND status!='cancelled'", [$doctorId, $date, $time]);
-        if ($clash) {
+        if ($dayCount >= 15) {
+            $error = 'This doctor is fully booked for that day (15/15 patients). Please choose another date or doctor.';
+        } elseif ($clash) {
             $error = 'That time slot is already booked for the selected doctor.';
         } else {
             $no = generateNo('DMC-A', 'appointments', 'appointment_no');

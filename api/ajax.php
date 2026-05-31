@@ -23,6 +23,7 @@ match($action) {
     'delete_invoice_item'=> deleteInvoiceItem($body),
     'search_patient'     => searchPatient($body),
     'search_medicine'    => searchMedicine($body),
+    'get_doctor_slots'   => getDoctorSlots($body),
     default              => jsonErr('Unknown action'),
 };
 
@@ -314,6 +315,19 @@ function searchPatient(array $b): void {
         ["%$q%", "%$q%", "%$q%", "%$q%"]
     );
     jsonOk(['results' => $results]);
+}
+
+function getDoctorSlots(array $b): void {
+    $doctorId = (int)($b['doctor_id'] ?? 0);
+    $date     = trim($b['date'] ?? '');
+    if (!$doctorId || !$date) jsonErr('Doctor and date required.');
+    $booked = rows(
+        "SELECT TIME_FORMAT(appointment_time,'%H:%i:%s') AS t FROM appointments
+         WHERE doctor_id=? AND appointment_date=? AND status!='cancelled'",
+        [$doctorId, $date]
+    );
+    $count = count($booked);
+    jsonOk(['booked' => array_column($booked, 't'), 'count' => $count, 'at_capacity' => $count >= 15]);
 }
 
 function searchMedicine(array $b): void {

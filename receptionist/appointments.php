@@ -65,6 +65,44 @@ include __DIR__ . '/../includes/header.php'; ?>
   </form>
 </div>
 
+<?php
+$workload = rows("SELECT u.id, CONCAT(u.first_name,' ',u.last_name) AS dname,
+    COUNT(a.id) AS cnt
+    FROM users u
+    LEFT JOIN appointments a ON a.doctor_id=u.id AND a.appointment_date=? AND a.status!='cancelled'
+    WHERE u.role='doctor' AND u.is_active=1
+    GROUP BY u.id ORDER BY cnt DESC", [$dateFilter]);
+?>
+<div class="dmc-card mb-3">
+  <div class="dmc-card-title"><i class="bi bi-people me-2"></i>Doctor Workload — <?= date('d M Y', strtotime($dateFilter)) ?>
+    <span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:8px">Max 15 patients/day per doctor</span>
+  </div>
+  <div class="row g-2">
+    <?php foreach ($workload as $w):
+      $cnt = (int)$w['cnt'];
+      $pct = min(100, round($cnt/15*100));
+      $color = $cnt>=15 ? 'var(--danger)' : ($cnt>=12 ? '#f59e0b' : 'var(--success)');
+    ?>
+    <div class="col-sm-6 col-md-4 col-lg-3">
+      <div class="p-2 rounded" style="background:var(--bg)">
+        <div class="d-flex justify-content-between mb-1" style="font-size:12px">
+          <span style="font-weight:600">Dr. <?= e($w['dname']) ?></span>
+          <span style="color:<?= $color ?>;font-weight:700"><?= $cnt ?>/15</span>
+        </div>
+        <div style="background:var(--border);border-radius:3px;height:6px">
+          <div style="width:<?= $pct ?>%;height:6px;border-radius:3px;background:<?= $color ?>"></div>
+        </div>
+        <?php if ($cnt>=15): ?>
+        <div style="font-size:10px;color:var(--danger);margin-top:3px">Fully booked</div>
+        <?php elseif ($cnt>=12): ?>
+        <div style="font-size:10px;color:#b45309;margin-top:3px"><?= 15-$cnt ?> slot(s) left</div>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+
 <div class="dmc-card">
   <div class="dmc-card-title">Appointments — <?= date('l, d F Y', strtotime($dateFilter)) ?> (<?= count($appts) ?>)</div>
   <div class="table-responsive">
