@@ -31,9 +31,10 @@ if ($action === 'new' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 [$invId, $item['desc'] ?? '', $item['qty'] ?? 1, $item['price'] ?? 0, $lineTotal]
             );
         }
-        execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$total, $patientId]);
-        audit('create_invoice', 'invoices', $invId, "Invoice $no, total " . money($total));
-        flash('main', "Invoice $no created — RWF " . number_format($total));
+        $patTotal = applyInsuranceToInvoice($invId, $patientId, $total);
+        execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$patTotal, $patientId]);
+        audit('create_invoice', 'invoices', $invId, "Invoice $no, total " . money($total) . ", patient portion " . money($patTotal));
+        flash('main', "Invoice $no created — RWF " . number_format($total) . ($patTotal < $total ? ' (patient pays RWF ' . number_format($patTotal) . ' after insurance)' : ''));
         header("Location: /dmc/doctor/invoices.php?id=$invId"); exit;
     }
 }
@@ -170,6 +171,13 @@ include __DIR__ . '/../includes/header.php'; ?>
           </tbody>
           <tfoot style="background:var(--bg)">
             <tr><td colspan="3" class="text-end"><strong>Total</strong></td><td><strong><?= money($inv['total']) ?></strong></td></tr>
+            <?php
+              $claim = row("SELECT * FROM insurance_claims WHERE invoice_id=?", [$inv['id']]);
+              if ($claim):
+            ?>
+            <tr><td colspan="3" class="text-end" style="color:var(--success)">Insurance (<?= e($claim['insurance_provider']) ?>)</td><td style="color:var(--success)">-<?= money($claim['insurance_amount']) ?></td></tr>
+            <tr><td colspan="3" class="text-end">Patient Portion</td><td><?= money($claim['patient_amount']) ?></td></tr>
+            <?php endif; ?>
             <tr><td colspan="3" class="text-end" style="color:var(--success)">Paid</td><td style="color:var(--success)"><?= money($inv['paid']) ?></td></tr>
             <tr><td colspan="3" class="text-end"><strong style="color:var(--danger)">Balance Due</strong></td><td><strong style="color:var(--danger);font-size:16px"><?= money($inv['balance']) ?></strong></td></tr>
           </tfoot>

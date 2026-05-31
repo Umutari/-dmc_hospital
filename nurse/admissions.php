@@ -45,8 +45,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     "INSERT INTO invoice_items (invoice_id,description,quantity,unit_price,total_price) VALUES (?,?,?,?,?)",
                     [$invId, "Room {$adm['room_no']} — {$adm['room_type']}", $days, $ppd, $roomTotal]
                 );
-                execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$roomTotal, $adm['patient_id']]);
-                audit('auto_invoice_room', 'invoices', $invId, "Auto-invoice $invNo for room charges ($days days)");
+                $patRoomTotal = applyInsuranceToInvoice($invId, $adm['patient_id'], $roomTotal);
+                execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$patRoomTotal, $adm['patient_id']]);
+                audit('auto_invoice_room', 'invoices', $invId, "Auto-invoice $invNo for room charges ($days days), patient portion ".money($patRoomTotal));
             }
 
             audit('discharge_patient','admissions',$admId);

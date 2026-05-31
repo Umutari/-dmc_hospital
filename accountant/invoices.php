@@ -26,10 +26,10 @@ if ($action === 'new' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             execute("INSERT INTO invoice_items (invoice_id,description,quantity,unit_price,total_price) VALUES (?,?,?,?,?)",
                 [$invId, $item['desc']??'', $item['qty']??1, $item['price']??0, $lineTotal]);
         }
-        /* add to patient running balance */
-        execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$total, $patientId]);
-        audit('create_invoice','invoices',$invId,"Invoice $no, total ".money($total));
-        flash('main',"Invoice $no created for RWF ".number_format($total));
+        $patTotal = applyInsuranceToInvoice($invId, $patientId, $total);
+        execute("UPDATE patients SET balance = balance + ? WHERE id=?", [$patTotal, $patientId]);
+        audit('create_invoice','invoices',$invId,"Invoice $no, total ".money($total).", patient portion ".money($patTotal));
+        flash('main',"Invoice $no created for RWF ".number_format($total).($patTotal < $total ? ' (patient pays RWF '.number_format($patTotal).' after insurance)' : ''));
         header("Location: /dmc/accountant/invoices.php?id=$invId"); exit;
     }
 }
