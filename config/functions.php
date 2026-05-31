@@ -64,9 +64,9 @@ function dtF(string $dt): string  { return $dt ? date('d M Y, h:i A', strtotime(
 function age(string $dob): int    { return (int)date_diff(date_create($dob), date_create('today'))->y; }
 
 function generateNo(string $prefix, string $table, string $column): string {
-    $year  = date('Y');
-    $count = (int)scalar("SELECT COUNT(*) FROM $table WHERE $column LIKE '$prefix-$year-%'") + 1;
-    return "$prefix-$year-" . str_pad($count, 4, '0', STR_PAD_LEFT);
+    $year = date('Y');
+    $max  = (int)scalar("SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX($column,'-',-1) AS UNSIGNED)),0) FROM $table WHERE $column LIKE '$prefix-$year-%'");
+    return "$prefix-$year-" . str_pad($max + 1, 4, '0', STR_PAD_LEFT);
 }
 
 function avatarUrl(string $file): string {
