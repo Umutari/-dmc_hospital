@@ -6,7 +6,7 @@ $pageTitle = 'Billing & Finance';
 $stats = [
     'today_revenue'  => scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='success' AND DATE(paid_at)=CURDATE()"),
     'month_revenue'  => scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='success' AND MONTH(paid_at)=MONTH(NOW()) AND YEAR(paid_at)=YEAR(NOW())"),
-    'pending_bills'  => scalar("SELECT COUNT(*) FROM invoices WHERE status IN('draft','issued','partial')"),
+    'pending_bills'  => scalar("SELECT COUNT(*) FROM invoices WHERE status IN('issued','partial')"),
     'pending_amount' => scalar("SELECT COALESCE(SUM(balance),0) FROM invoices WHERE status IN('issued','partial')"),
 ];
 

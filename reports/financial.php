@@ -23,7 +23,7 @@ $revChange   = $prevRevenue > 0 ? round(($revenue - $prevRevenue) / $prevRevenue
 
 $totalInvoiced  = (float)scalar("SELECT COALESCE(SUM(total),0) FROM invoices WHERE DATE(created_at) BETWEEN ? AND ?", [$from,$to]);
 $totalPaid      = (float)scalar("SELECT COALESCE(SUM(paid),0) FROM invoices WHERE DATE(created_at) BETWEEN ? AND ?", [$from,$to]);
-$outstanding    = (float)scalar("SELECT COALESCE(SUM(balance),0) FROM invoices WHERE status IN('issued','partial')");
+$outstanding    = (float)scalar("SELECT COALESCE(SUM(balance),0) FROM invoices WHERE status IN('issued','partial') AND DATE(created_at) BETWEEN ? AND ?", [$from, $to]);
 $invoiceCount   = (int)scalar("SELECT COUNT(*) FROM invoices WHERE DATE(created_at) BETWEEN ? AND ?", [$from,$to]);
 $paidInvoices   = (int)scalar("SELECT COUNT(*) FROM invoices WHERE status='paid' AND DATE(created_at) BETWEEN ? AND ?", [$from,$to]);
 $txnCount       = (int)scalar("SELECT COUNT(*) FROM payments WHERE status='success' AND DATE(paid_at) BETWEEN ? AND ?", [$from,$to]);

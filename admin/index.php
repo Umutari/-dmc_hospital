@@ -8,7 +8,7 @@ $stats = [
     'appointments' => scalar("SELECT COUNT(*) FROM appointments WHERE appointment_date = CURDATE()"),
     'doctors'      => scalar("SELECT COUNT(*) FROM users WHERE role='doctor' AND is_active=1"),
     'revenue'      => scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='success' AND MONTH(paid_at)=MONTH(NOW()) AND YEAR(paid_at)=YEAR(NOW())"),
-    'pending_inv'  => scalar("SELECT COUNT(*) FROM invoices WHERE status IN('draft','issued','partial')"),
+    'pending_inv'  => scalar("SELECT COUNT(*) FROM invoices WHERE status IN('issued','partial')"),
     'admissions'   => scalar("SELECT COUNT(*) FROM admissions WHERE status='active'"),
 ];
 

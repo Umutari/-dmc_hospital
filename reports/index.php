@@ -17,7 +17,7 @@ $revenue   = (float)scalar("SELECT COALESCE(SUM(amount),0) FROM payments WHERE s
 $newPats   = (int)scalar("SELECT COUNT(*) FROM patients WHERE DATE(created_at) BETWEEN ? AND ?", [$from,$to]);
 $appts     = (int)scalar("SELECT COUNT(*) FROM appointments WHERE appointment_date BETWEEN ? AND ?", [$from,$to]);
 $dispensed = (int)scalar("SELECT COUNT(*) FROM prescriptions WHERE status='dispensed' AND DATE(dispensed_at) BETWEEN ? AND ?", [$from,$to]);
-$outstanding = (float)scalar("SELECT COALESCE(SUM(balance),0) FROM invoices WHERE status IN('issued','partial')");
+$outstanding = (float)scalar("SELECT COALESCE(SUM(balance),0) FROM invoices WHERE status IN('issued','partial') AND DATE(created_at) BETWEEN ? AND ?", [$from, $to]);
 
 /* Revenue by day for chart — use the same period as the KPI cards */
 $revenueChart = rows("SELECT DATE(paid_at) AS day, SUM(amount) AS total FROM payments WHERE status='success' AND DATE(paid_at) BETWEEN ? AND ? GROUP BY DATE(paid_at) ORDER BY day", [$from, $to]);

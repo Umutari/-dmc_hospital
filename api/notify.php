@@ -9,8 +9,6 @@ requireLogin();
 
 header('Content-Type: application/json');
 
-define('WA_TOKEN',      'EAAYhC3gxzUgBRvZA4FGBw9pZCVaBqqy96JlyDk905WFc9MQZAd32MQJNlXRz45oZBzKW7KYMirlJ2J85KsarU6NjioNfdroV24ZBSb5YZB5xRsGmkpu4VRWBJZCZA7mwtuyZCUAkJO38N0LRzeFkfbmktEtxTtTOXgCU815yEmsuh9ZBDNpe9UkhWx8a78HinG9q3b37Cn4I2NCIZCvsD4B5kmdzQQC5p1TwqxB2tIOIJbbWfzhTXPuqiibQkFktZALuXpE7CFBBLqr1cNZB72UhSPlPqTQZDZD');
-define('WA_PHONE_ID',   '1133350083195956');
 define('OTP_TTL',       600);
 define('OTP_MAX_TRIES', 5);
 
@@ -58,13 +56,16 @@ function dmcSendSMS(string $phone, string $message): string {
 }
 
 function dmcSendWhatsApp(string $phone, string $message): string {
+    $token    = setting('wa_token');
+    $phone_id = setting('wa_phone_id');
+    if (!$token || !$phone_id) return 'error';
     $digits = preg_replace('/[^0-9]/', '', $phone);
     if (strpos($digits, '250') === 0) $digits = substr($digits, 3);
     if (strpos($digits, '0')   === 0) $digits = substr($digits, 1);
     $to   = '250' . $digits;
-    $url  = 'https://graph.facebook.com/v22.0/' . WA_PHONE_ID . '/messages';
+    $url  = 'https://graph.facebook.com/v22.0/' . $phone_id . '/messages';
     $data = json_encode(['messaging_product'=>'whatsapp','to'=>$to,'type'=>'text','text'=>['body'=>$message]]);
-    $opts = ['http'=>['method'=>'POST','header'=>"Content-Type: application/json\r\nAuthorization: Bearer ".WA_TOKEN."\r\n",'content'=>$data,'ignore_errors'=>true]];
+    $opts = ['http'=>['method'=>'POST','header'=>"Content-Type: application/json\r\nAuthorization: Bearer ".$token."\r\n",'content'=>$data,'ignore_errors'=>true]];
     $result = file_get_contents($url, false, stream_context_create($opts));
     $json   = json_decode($result ?: '', true);
     return isset($json['messages']) ? 'success' : 'error';
@@ -89,7 +90,7 @@ if ($action === 'send_otp') {
     if ($channel==='whatsapp'||$channel==='both') $wa_st  = dmcSendWhatsApp($phone, $wa_msg);
 
     $ok = ($sms_st==='success'||$wa_st==='success');
-    echo json_encode(['ok'=>$ok||true,'sms_status'=>$sms_st,'wa_status'=>$wa_st,'error'=>$ok?null:'Could not deliver OTP. Use 000000 if SMS unavailable.']);
+    echo json_encode(['ok'=>$ok,'sms_status'=>$sms_st,'wa_status'=>$wa_st,'error'=>$ok?null:'Could not deliver OTP. Please try again.']);
     exit;
 }
 
@@ -103,7 +104,7 @@ if ($action === 'verify_otp') {
     $exp = $key . '_exp';
     if (empty($_SESSION[$key])) { echo json_encode(['ok'=>false,'error'=>'No OTP found. Request a new code.']); exit; }
     if (time() > (int)($_SESSION[$exp] ?? 0)) { unset($_SESSION[$key],$_SESSION[$exp]); echo json_encode(['ok'=>false,'error'=>'Code expired. Request a new one.']); exit; }
-    $ok = hash_equals($_SESSION[$key], $entered) || $entered === '000000';
+    $ok = hash_equals($_SESSION[$key], $entered);
     if ($ok) {
         unset($_SESSION['dmc_otp_sms'],$_SESSION['dmc_otp_sms_exp'],$_SESSION['dmc_otp_wa'],$_SESSION['dmc_otp_wa_exp'],$_SESSION['dmc_otp_tries']);
         echo json_encode(['ok'=>true]);
