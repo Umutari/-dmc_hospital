@@ -15,10 +15,15 @@ $stats = [
 $recentPatients    = rows("SELECT * FROM patients ORDER BY created_at DESC LIMIT 6");
 $todayAppointments = rows("SELECT a.*, CONCAT(p.first_name,' ',p.last_name) AS patient_name, CONCAT(u.first_name,' ',u.last_name) AS doctor_name FROM appointments a JOIN patients p ON a.patient_id=p.id JOIN users u ON a.doctor_id=u.id WHERE a.appointment_date=CURDATE() ORDER BY a.appointment_time LIMIT 8");
 
-/* chart data: last 7 days revenue */
-$revenueData = rows("SELECT DATE(paid_at) as d, SUM(amount) as total FROM payments WHERE status='success' AND paid_at >= DATE_SUB(NOW(),INTERVAL 7 DAY) GROUP BY DATE(paid_at) ORDER BY d");
-$chartLabels = array_column($revenueData, 'd');
-$chartValues = array_column($revenueData, 'total');
+/* chart data: last 7 days revenue — fill every day, gaps default to 0 */
+$revenueData = rows("SELECT DATE(paid_at) as d, SUM(amount) as total FROM payments WHERE status='success' AND DATE(paid_at) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY) GROUP BY DATE(paid_at) ORDER BY d");
+$revenueMap  = array_column($revenueData, 'total', 'd');
+$chartLabels = $chartValues = [];
+for ($i = 6; $i >= 0; $i--) {
+    $d = date('Y-m-d', strtotime("-$i days"));
+    $chartLabels[] = date('D M j', strtotime($d));
+    $chartValues[] = (float)($revenueMap[$d] ?? 0);
+}
 
 /* appointments by dept — join through doctors since appointments.department_id may not exist */
 $deptData = rows("SELECT d.name, COUNT(a.id) as cnt FROM appointments a JOIN users u ON a.doctor_id=u.id JOIN doctors doc ON u.id=doc.user_id LEFT JOIN departments d ON doc.department_id=d.id WHERE MONTH(a.appointment_date)=MONTH(NOW()) AND d.id IS NOT NULL GROUP BY d.id ORDER BY cnt DESC LIMIT 6");

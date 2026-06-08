@@ -19,8 +19,8 @@ $appts     = (int)scalar("SELECT COUNT(*) FROM appointments WHERE appointment_da
 $dispensed = (int)scalar("SELECT COUNT(*) FROM prescriptions WHERE status='dispensed' AND DATE(dispensed_at) BETWEEN ? AND ?", [$from,$to]);
 $outstanding = (float)scalar("SELECT COALESCE(SUM(balance),0) FROM invoices WHERE status IN('issued','partial')");
 
-/* Revenue by day (last 30 days for chart) */
-$revenueChart = rows("SELECT DATE(paid_at) AS day, SUM(amount) AS total FROM payments WHERE status='success' AND DATE(paid_at) >= DATE_SUB(CURDATE(),INTERVAL 29 DAY) GROUP BY DATE(paid_at) ORDER BY day");
+/* Revenue by day for chart — use the same period as the KPI cards */
+$revenueChart = rows("SELECT DATE(paid_at) AS day, SUM(amount) AS total FROM payments WHERE status='success' AND DATE(paid_at) BETWEEN ? AND ? GROUP BY DATE(paid_at) ORDER BY day", [$from, $to]);
 
 /* Revenue by payment method */
 $byMethod = rows("SELECT method, SUM(amount) AS total, COUNT(*) AS txns FROM payments WHERE status='success' AND DATE(paid_at) BETWEEN ? AND ? GROUP BY method ORDER BY total DESC", [$from,$to]);
@@ -71,7 +71,7 @@ include __DIR__ . '/../includes/header.php'; ?>
   <!-- Revenue trend chart -->
   <div class="col-lg-8">
     <div class="dmc-card">
-      <div class="dmc-card-title">Revenue Trend (Last 30 Days)</div>
+      <div class="dmc-card-title">Revenue Trend</div>
       <canvas id="revenueChart" height="90"></canvas>
     </div>
   </div>
@@ -153,13 +153,15 @@ include __DIR__ . '/../includes/header.php'; ?>
 </div>
 
 <?php
-/* prepare chart data */
+/* prepare chart data — same period as KPI cards, gaps filled with 0, max 60 points */
+$revenueMap  = array_column($revenueChart, 'total', 'day');
+$chartDiff   = max(1, (int)((strtotime($to) - strtotime($from)) / 86400) + 1);
+$maxPts      = min($chartDiff, 60);
 $days = []; $revVals = [];
-for ($i=29;$i>=0;$i--) {
-    $d = date('Y-m-d', strtotime("-$i days"));
+for ($i = $maxPts - 1; $i >= 0; $i--) {
+    $d = date('Y-m-d', strtotime($to) - $i * 86400);
     $days[]    = date('M d', strtotime($d));
-    $found = array_filter($revenueChart, fn($r) => $r['day'] === $d);
-    $revVals[] = $found ? (float)array_values($found)[0]['total'] : 0;
+    $revVals[] = (float)($revenueMap[$d] ?? 0);
 }
 $apptLabels = array_column($apptStatus,'status');
 $apptData   = array_column($apptStatus,'cnt');
