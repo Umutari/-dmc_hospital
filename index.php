@@ -1,14 +1,85 @@
 <?php
 require_once __DIR__ . '/config/functions.php';
 
-/* handle login */
-$error = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$error       = '';
+$otp_error   = '';
+$otp_message = '';
+
+/* ── Cancel 2FA and return to login ── */
+if (isset($_GET['back'])) {
+    unset($_SESSION['pending_2fa']);
+    header('Location: /dmc/index.php'); exit;
+}
+
+/* ── STEP 2: OTP verification ── */
+if (isset($_SESSION['pending_2fa']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = trim($_POST['action'] ?? '');
+
+    if ($action === 'resend_otp') {
+        $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $_SESSION['pending_2fa']['otp']   = $otp;
+        $_SESSION['pending_2fa']['exp']   = time() + 600;
+        $_SESSION['pending_2fa']['tries'] = 0;
+        sendSMS($_SESSION['pending_2fa']['phone'],
+            "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
+        $otp_message = 'A new code has been sent to your phone.';
+    } else {
+        $entered = trim($_POST['otp'] ?? '');
+        $tfa     = $_SESSION['pending_2fa'];
+
+        if ($tfa['tries'] >= 5) {
+            unset($_SESSION['pending_2fa']);
+            $error = 'Too many failed attempts. Please sign in again.';
+        } elseif (time() > $tfa['exp']) {
+            unset($_SESSION['pending_2fa']);
+            $error = 'Verification code expired. Please sign in again.';
+        } elseif (strlen($entered) === 6 && hash_equals($tfa['otp'], $entered)) {
+            $user = row("SELECT * FROM users WHERE id = ? AND is_active = 1", [$tfa['user']['id']]);
+            if (!$user) {
+                unset($_SESSION['pending_2fa']);
+                $error = 'Account not found or deactivated. Please contact support.';
+            } else {
+                unset($_SESSION['pending_2fa']);
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['role']    = $user['role'];
+                $_SESSION['user']    = $user;
+                execute("UPDATE users SET updated_at = NOW() WHERE id = ?", [$user['id']]);
+                audit('login', 'users', $user['id'], 'User logged in (2FA)');
+                header('Location: ' . dashboardUrl()); exit;
+            }
+        } else {
+            $_SESSION['pending_2fa']['tries']++;
+            $left = 5 - $_SESSION['pending_2fa']['tries'];
+            if ($left <= 0) {
+                unset($_SESSION['pending_2fa']);
+                $error = 'Too many failed attempts. Please sign in again.';
+            } else {
+                $otp_error = "Incorrect code. $left attempt(s) left.";
+            }
+        }
+    }
+}
+
+/* ── STEP 1: Login form ── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_SESSION['pending_2fa']) && empty($error)) {
     $email = trim($_POST['email'] ?? '');
     $pass  = trim($_POST['password'] ?? '');
     if ($email && $pass) {
         $user = row("SELECT * FROM users WHERE email = ? AND is_active = 1", [$email]);
         if ($user && password_verify($pass, $user['password'])) {
+            if ($user['role'] === 'patient') {
+                $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $_SESSION['pending_2fa'] = [
+                    'user'  => $user,
+                    'otp'   => $otp,
+                    'exp'   => time() + 600,
+                    'tries' => 0,
+                    'phone' => $user['phone'],
+                ];
+                sendSMS($user['phone'],
+                    "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
+                header('Location: /dmc/index.php'); exit;
+            }
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['role']    = $user['role'];
             $_SESSION['user']    = $user;
@@ -28,6 +99,16 @@ if (isLoggedIn()) {
         header('Location: ' . dashboardUrl()); exit;
     }
     session_destroy();
+}
+
+/* ── OTP screen helpers ── */
+$maskedPhone  = '';
+$otpRemaining = 0;
+if (isset($_SESSION['pending_2fa'])) {
+    $rawPhone    = $_SESSION['pending_2fa']['phone'];
+    $d           = preg_replace('/[^0-9]/', '', preg_replace('/^\+?250/', '', $rawPhone));
+    $maskedPhone = substr($d, 0, 3) . '****' . substr($d, -3);
+    $otpRemaining = max(0, $_SESSION['pending_2fa']['exp'] - time());
 }
 ?>
 <!DOCTYPE html>
@@ -62,16 +143,23 @@ body{font-family:'Sora',sans-serif;background:linear-gradient(135deg,#0A2342 0%,
 .btn-login{width:100%;height:48px;background:linear-gradient(135deg,#0A2342,#1A6BB5);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;transition:opacity .15s,transform .1s}
 .btn-login:hover{opacity:.92}
 .btn-login:active{transform:scale(.98)}
-.role-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:1.5rem}
-.rb{background:#f0f4ff;border:1px solid #c7d7f5;border-radius:20px;padding:3px 11px;font-size:10.5px;font-weight:600;color:#1A6BB5}
 .input-icon{position:relative}
 .input-icon i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#adb5bd;font-size:15px;pointer-events:none}
 .input-icon .form-control{padding-left:38px}
+.otp-shield{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#e8f4fd,#d0e8ff);display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:28px;color:#1A6BB5}
+.otp-inputs{display:flex;gap:8px;justify-content:center;margin:1.5rem 0}
+.otp-digit{width:46px;height:54px;border:2px solid #dee2e6;border-radius:10px;text-align:center;font-size:22px;font-weight:700;color:#0A2342;transition:border-color .18s,box-shadow .18s;outline:none;background:#fff}
+.otp-digit:focus{border-color:#1A6BB5;box-shadow:0 0 0 3px rgba(26,107,181,.12)}
+.otp-digit.filled{border-color:#0E6655;background:#f0fff8}
+.otp-countdown{font-size:12px;color:#999;text-align:center;margin-top:.25rem}
+.btn-resend{background:none;border:none;color:#1A6BB5;font-size:13px;font-weight:600;font-family:'Sora',sans-serif;cursor:pointer;padding:0;text-decoration:underline}
+.btn-resend:hover{opacity:.7}
 @media(max-width:700px){.login-wrap{grid-template-columns:1fr}.login-left{display:none}}
 </style>
 </head>
 <body>
 <div class="login-wrap">
+
   <div class="login-left">
     <div>
       <div class="dmc-logo">
@@ -81,12 +169,12 @@ body{font-family:'Sora',sans-serif;background:linear-gradient(135deg,#0A2342 0%,
       <div class="hero-title">Transforming Healthcare in Rwanda</div>
       <div class="hero-sub">Integrated hospital management system providing seamless care from registration through treatment, billing and follow-up.</div>
       <ul class="feature-list">
-        <li><i class="bi bi-check-circle-fill"></i> Patient records & electronic medical history</li>
+        <li><i class="bi bi-check-circle-fill"></i> Patient records &amp; electronic medical history</li>
         <li><i class="bi bi-check-circle-fill"></i> Smart appointment scheduling</li>
-        <li><i class="bi bi-check-circle-fill"></i> Pharmacy & lab management</li>
-        <li><i class="bi bi-check-circle-fill"></i> MoMo & card billing (Flutterwave)</li>
+        <li><i class="bi bi-check-circle-fill"></i> Pharmacy &amp; lab management</li>
+        <li><i class="bi bi-check-circle-fill"></i> MoMo &amp; card billing (Flutterwave)</li>
         <li><i class="bi bi-check-circle-fill"></i> SMS/WhatsApp notifications</li>
-        <li><i class="bi bi-check-circle-fill"></i> Real-time reports & analytics</li>
+        <li><i class="bi bi-check-circle-fill"></i> Real-time reports &amp; analytics</li>
       </ul>
     </div>
     <div class="address-block">
@@ -96,6 +184,59 @@ body{font-family:'Sora',sans-serif;background:linear-gradient(135deg,#0A2342 0%,
   </div>
 
   <div class="login-right d-flex flex-column justify-content-center">
+
+    <?php if (isset($_SESSION['pending_2fa'])): ?>
+    <!-- ── OTP step ── -->
+    <div class="otp-shield"><i class="bi bi-shield-lock"></i></div>
+    <div class="right-title" style="text-align:center">Two-Step Verification</div>
+    <div class="right-sub" style="text-align:center">
+      A 6-digit code was sent via SMS to<br>
+      <strong style="color:#0A2342">+250 <?= e($maskedPhone) ?></strong>
+    </div>
+
+    <?php if ($otp_error): ?>
+    <div class="alert alert-danger py-2 mb-3" style="font-size:13px">
+      <i class="bi bi-exclamation-circle me-2"></i><?= e($otp_error) ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($otp_message): ?>
+    <div class="alert alert-success py-2 mb-3" style="font-size:13px">
+      <i class="bi bi-check-circle me-2"></i><?= e($otp_message) ?>
+    </div>
+    <?php endif; ?>
+
+    <form method="POST" id="otpForm">
+      <input type="hidden" name="otp" id="otpHidden">
+      <div class="otp-inputs">
+        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric" autocomplete="one-time-code">
+        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+        <input type="text" class="otp-digit" maxlength="1" inputmode="numeric">
+      </div>
+      <div class="otp-countdown" id="countdown"></div>
+      <button type="submit" class="btn-login mt-3">
+        <i class="bi bi-shield-check me-2"></i>Verify Code
+      </button>
+    </form>
+
+    <div style="text-align:center;margin-top:1.25rem">
+      <form method="POST" style="display:inline">
+        <input type="hidden" name="action" value="resend_otp">
+        <span style="font-size:13px;color:#666">Didn't receive a code?</span>
+        <button type="submit" class="btn-resend ms-1">Resend</button>
+      </form>
+    </div>
+    <div style="text-align:center;margin-top:.75rem">
+      <a href="/dmc/index.php?back=1" style="font-size:13px;color:#aaa;text-decoration:none">
+        <i class="bi bi-arrow-left me-1"></i>Back to sign in
+      </a>
+    </div>
+
+    <?php else: ?>
+    <!-- ── Login step ── -->
     <div class="right-title">Welcome back</div>
     <div class="right-sub">Sign in to your DMC account</div>
 
@@ -137,19 +278,79 @@ body{font-family:'Sora',sans-serif;background:linear-gradient(135deg,#0A2342 0%,
       <p style="font-size:13px;color:#666">Don't have an account?
       <a href="/dmc/signup.php" style="color:#1A6BB5;text-decoration:none;font-weight:600">Create one here</a></p>
     </div>
+    <?php endif; ?>
 
     <div style="font-size:11px;color:#aaa;text-align:center;margin-top:1.5rem">
       &copy; <?= date('Y') ?> DMC - Dream Medical Center. All rights reserved.
     </div>
   </div>
 </div>
+
 <script>
-function togglePass(){
-  const i=document.getElementById('passInput');
-  const e=document.getElementById('eyeBtn');
-  if(i.type==='password'){i.type='text';e.className='bi bi-eye-slash';}
-  else{i.type='password';e.className='bi bi-eye';}
+<?php if (isset($_SESSION['pending_2fa'])): ?>
+const otpInputs = document.querySelectorAll('.otp-digit');
+const otpHidden = document.getElementById('otpHidden');
+
+otpInputs.forEach((inp, i) => {
+    inp.addEventListener('input', () => {
+        inp.value = inp.value.replace(/\D/g, '').slice(-1);
+        inp.classList.toggle('filled', inp.value !== '');
+        if (inp.value && i < otpInputs.length - 1) otpInputs[i + 1].focus();
+        syncHidden();
+    });
+    inp.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !inp.value && i > 0) {
+            otpInputs[i - 1].value = '';
+            otpInputs[i - 1].classList.remove('filled');
+            otpInputs[i - 1].focus();
+            syncHidden();
+        }
+    });
+    inp.addEventListener('paste', e => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+        [...text].forEach((ch, j) => {
+            if (otpInputs[j]) { otpInputs[j].value = ch; otpInputs[j].classList.add('filled'); }
+        });
+        otpInputs[Math.min(text.length, otpInputs.length - 1)].focus();
+        syncHidden();
+    });
+});
+
+function syncHidden() {
+    otpHidden.value = [...otpInputs].map(i => i.value).join('');
 }
+
+document.getElementById('otpForm').addEventListener('submit', e => {
+    syncHidden();
+    if (otpHidden.value.length < 6) { e.preventDefault(); otpInputs[0].focus(); }
+});
+
+let secs = <?= (int)$otpRemaining ?>;
+const cdEl = document.getElementById('countdown');
+(function tick() {
+    if (secs <= 0) {
+        cdEl.textContent = 'Code expired — please request a new one.';
+        cdEl.style.color = '#dc3545';
+        return;
+    }
+    const m = Math.floor(secs / 60), s = secs % 60;
+    cdEl.textContent = 'Expires in ' + m + ':' + String(s).padStart(2, '0');
+    secs--;
+    setTimeout(tick, 1000);
+})();
+
+const firstEmpty = [...otpInputs].find(i => !i.value);
+if (firstEmpty) firstEmpty.focus();
+
+<?php else: ?>
+function togglePass() {
+    const i = document.getElementById('passInput');
+    const e = document.getElementById('eyeBtn');
+    if (i.type === 'password') { i.type = 'text'; e.className = 'bi bi-eye-slash'; }
+    else { i.type = 'password'; e.className = 'bi bi-eye'; }
+}
+<?php endif; ?>
 </script>
 </body>
 </html>
