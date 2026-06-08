@@ -230,8 +230,8 @@ body{font-family:'Sora',sans-serif;background:linear-gradient(135deg,#0A2342 0%,
       </form>
     </div>
     <div style="text-align:center;margin-top:.75rem">
-      <a href="/dmc/index.php?back=1" style="font-size:13px;color:#aaa;text-decoration:none">
-        <i class="bi bi-arrow-left me-1"></i>Back to sign in
+      <a href="/dmc/index.php?back=1" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#0A2342;border:1.5px solid #dee2e6;border-radius:8px;padding:7px 16px;text-decoration:none;transition:background .15s,border-color .15s" onmouseover="this.style.background='#f0f4ff';this.style.borderColor='#1A6BB5'" onmouseout="this.style.background='';this.style.borderColor='#dee2e6'">
+        <i class="bi bi-arrow-left"></i>Back to sign in
       </a>
     </div>
 
