@@ -67,25 +67,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_SESSION['pending_2fa']) &&
     if ($email && $pass) {
         $user = row("SELECT * FROM users WHERE email = ? AND is_active = 1", [$email]);
         if ($user && password_verify($pass, $user['password'])) {
-            if ($user['role'] === 'patient') {
-                $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                $_SESSION['pending_2fa'] = [
-                    'user'  => $user,
-                    'otp'   => $otp,
-                    'exp'   => time() + 600,
-                    'tries' => 0,
-                    'phone' => $user['phone'],
-                ];
-                sendSMS($user['phone'],
-                    "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
-                header('Location: /dmc/index.php'); exit;
-            }
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['role']    = $user['role'];
-            $_SESSION['user']    = $user;
-            execute("UPDATE users SET updated_at = NOW() WHERE id = ?", [$user['id']]);
-            audit('login', 'users', $user['id'], 'User logged in');
-            header('Location: ' . dashboardUrl()); exit;
+            $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $_SESSION['pending_2fa'] = [
+                'user'  => $user,
+                'otp'   => $otp,
+                'exp'   => time() + 600,
+                'tries' => 0,
+                'phone' => $user['phone'],
+            ];
+            sendSMS($user['phone'],
+                "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
+            header('Location: /dmc/index.php'); exit;
         }
         $error = 'Invalid email or password.';
     } else {
