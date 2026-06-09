@@ -23,13 +23,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('main','Email already exists.','danger');
         } else {
             $hash = password_hash($pass, PASSWORD_DEFAULT);
-            $uid  = execute("INSERT INTO users (first_name,last_name,email,phone,role,password,is_active) VALUES (?,?,?,?,?,?,1)",
-                            [$fname,$lname,$email,$phone,$role,$hash]);
-            if ($role === 'doctor') {
-                execute("INSERT INTO doctors (user_id,specialization) VALUES (?,?)", [$uid, $spec ?: null]);
+            try {
+                db()->beginTransaction();
+                execute("INSERT INTO users (first_name,last_name,email,phone,role,password,is_active) VALUES (?,?,?,?,?,?,1)",
+                        [$fname,$lname,$email,$phone,$role,$hash]);
+                $uid = (int)db()->lastInsertId();
+                if ($role === 'doctor') {
+                    execute("INSERT INTO doctors (user_id,specialization) VALUES (?,?)", [$uid, $spec ?: null]);
+                }
+                db()->commit();
+                audit('create_user','users',$uid,"Created $role: $fname $lname");
+                flash('main',"User $fname $lname created successfully.");
+            } catch (Exception $e) {
+                db()->rollBack();
+                flash('main', 'Failed to create user: ' . $e->getMessage(), 'danger');
             }
-            audit('create_user','users',$uid,"Created $role: $fname $lname");
-            flash('main',"User $fname $lname created successfully.");
         }
     } elseif ($act === 'toggle') {
         $uid    = (int)($_POST['user_id'] ?? 0);
@@ -138,7 +146,7 @@ include __DIR__ . '/../includes/header.php'; ?>
           </select>
         </div>
         <div class="col-md-6" id="specField" style="display:none">
-          <label class="form-label">Specialization</label>
+          <label class="form-label">Specialization <small class="text-muted">(doctors only)</small></label>
           <input name="specialization" class="form-control" placeholder="e.g. Cardiology">
         </div>
         <div class="col-12"><label class="form-label">Password *</label><input type="password" name="password" class="form-control" minlength="6" required></div>
