@@ -15,7 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $phone = trim($_POST['phone']      ?? '');
         $role  = trim($_POST['role']       ?? '');
         $pass  = trim($_POST['password']   ?? '');
-        $spec  = trim($_POST['specialization'] ?? '');
+        $spec    = trim($_POST['specialization'] ?? '');
+        $dept_id = (int)($_POST['department_id'] ?? 0);
 
         if (!$fname || !$lname || !$email || !$role || !$pass) {
             flash('main','All required fields must be filled.','danger');
@@ -29,7 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         [$fname,$lname,$email,$phone,$role,$hash]);
                 $uid = (int)db()->lastInsertId();
                 if ($role === 'doctor') {
-                    execute("INSERT INTO doctors (user_id,specialization) VALUES (?,?)", [$uid, $spec ?: null]);
+                    execute("INSERT INTO doctors (user_id,specialization,department_id) VALUES (?,?,?)",
+                            [$uid, $spec ?: null, $dept_id ?: null]);
                 }
                 db()->commit();
                 audit('create_user','users',$uid,"Created $role: $fname $lname");
@@ -47,17 +49,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('main','User status updated.');
         }
     } elseif ($act === 'edit_spec') {
-        $uid  = (int)($_POST['user_id'] ?? 0);
-        $spec = trim($_POST['specialization'] ?? '');
+        $uid     = (int)($_POST['user_id'] ?? 0);
+        $spec    = trim($_POST['specialization'] ?? '');
+        $dept_id = (int)($_POST['department_id'] ?? 0);
         if ($uid) {
             $exists = scalar("SELECT COUNT(*) FROM doctors WHERE user_id=?", [$uid]);
             if ($exists) {
-                execute("UPDATE doctors SET specialization=? WHERE user_id=?", [$spec ?: null, $uid]);
+                execute("UPDATE doctors SET specialization=?,department_id=? WHERE user_id=?",
+                        [$spec ?: null, $dept_id ?: null, $uid]);
             } else {
-                execute("INSERT INTO doctors (user_id,specialization) VALUES (?,?)", [$uid, $spec ?: null]);
+                execute("INSERT INTO doctors (user_id,specialization,department_id) VALUES (?,?,?)",
+                        [$uid, $spec ?: null, $dept_id ?: null]);
             }
-            audit('edit_specialization','doctors',$uid,"Specialization updated");
-            flash('main','Specialization updated successfully.');
+            audit('edit_specialization','doctors',$uid,"Specialization/department updated");
+            flash('main','Doctor profile updated successfully.');
         }
     } elseif ($act === 'reset_pass') {
         $uid  = (int)($_POST['user_id'] ?? 0);
@@ -75,10 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $roleFilter = $_GET['role'] ?? 'all';
 $users = $roleFilter === 'all'
-    ? rows("SELECT u.*, d.specialization FROM users u LEFT JOIN doctors d ON u.id=d.user_id ORDER BY u.role, u.first_name")
-    : rows("SELECT u.*, d.specialization FROM users u LEFT JOIN doctors d ON u.id=d.user_id WHERE u.role=? ORDER BY u.first_name", [$roleFilter]);
+    ? rows("SELECT u.*, d.specialization, d.department_id, dep.name AS dept_name FROM users u LEFT JOIN doctors d ON u.id=d.user_id LEFT JOIN departments dep ON d.department_id=dep.id ORDER BY u.role, u.first_name")
+    : rows("SELECT u.*, d.specialization, d.department_id, dep.name AS dept_name FROM users u LEFT JOIN doctors d ON u.id=d.user_id LEFT JOIN departments dep ON d.department_id=dep.id WHERE u.role=? ORDER BY u.first_name", [$roleFilter]);
 
 $roles = ['admin','doctor','nurse','receptionist','pharmacist','accountant','lab_technician','patient'];
+$departments = rows("SELECT id, name FROM departments ORDER BY name");
 $specializations = [
     'General Medicine','Internal Medicine','Cardiology','Neurology','Dermatology',
     'Gynecology','Pediatrics','Orthopedics','Ophthalmology','ENT',
@@ -120,7 +126,12 @@ include __DIR__ . '/../includes/header.php'; ?>
         <td style="font-size:12px"><?= e($u['email']) ?></td>
         <td style="font-size:12px"><?= e($u['phone']??'—') ?></td>
         <td><span class="badge-status bs-active" style="font-size:10px"><?= ucfirst(str_replace('_',' ',$u['role'])) ?></span></td>
-        <td style="font-size:12px;color:var(--muted)"><?= $u['specialization'] ? e($u['specialization']) : '—' ?></td>
+        <td style="font-size:12px;color:var(--muted)">
+          <?= $u['specialization'] ? e($u['specialization']) : '' ?>
+          <?php if ($u['dept_name'] ?? null): ?>
+            <?= $u['specialization'] ? ' · ' : '' ?><span style="font-size:11px"><?= e($u['dept_name']) ?></span>
+          <?php elseif (!$u['specialization']): ?>—<?php endif; ?>
+        </td>
         <td>
           <span class="badge-status <?= $u['is_active']?'bs-active':'bs-cancelled' ?>"><?= $u['is_active']?'Active':'Inactive' ?></span>
         </td>
@@ -136,7 +147,7 @@ include __DIR__ . '/../includes/header.php'; ?>
             <?php endif; ?>
             <button onclick="openReset(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'].' '.$u['last_name'])) ?>')" class="btn btn-sm btn-outline-secondary" style="font-size:10px">Reset PW</button>
             <?php if ($u['role'] === 'doctor'): ?>
-            <button onclick="openSpec(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'].' '.$u['last_name'])) ?>', '<?= e(addslashes($u['specialization'] ?? '')) ?>')" class="btn btn-sm btn-outline-primary" style="font-size:10px">Edit Spec</button>
+            <button onclick="openSpec(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'].' '.$u['last_name'])) ?>', '<?= e(addslashes($u['specialization'] ?? '')) ?>', <?= (int)($u['department_id'] ?? 0) ?>)" class="btn btn-sm btn-outline-primary" style="font-size:10px">Edit Spec</button>
             <?php endif; ?>
           </div>
         </td>
@@ -173,6 +184,13 @@ include __DIR__ . '/../includes/header.php'; ?>
           <select name="specialization" class="form-select">
             <option value="">— Select specialization —</option>
             <?php foreach ($specializations as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-md-6" id="deptField" style="display:none">
+          <label class="form-label">Department <small class="text-muted">(doctors only)</small></label>
+          <select name="department_id" class="form-select">
+            <option value="">— Select department —</option>
+            <?php foreach ($departments as $dep): ?><option value="<?= $dep['id'] ?>"><?= e($dep['name']) ?></option><?php endforeach; ?>
           </select>
         </div>
         <div class="col-12"><label class="form-label">Password *</label><input type="password" name="password" class="form-control" minlength="6" required></div>
@@ -215,6 +233,13 @@ include __DIR__ . '/../includes/header.php'; ?>
           <?php foreach ($specializations as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
         </select>
       </div>
+      <div class="mb-3">
+        <label class="form-label">Department</label>
+        <select name="department_id" id="deptInput" class="form-select">
+          <option value="">— No department —</option>
+          <?php foreach ($departments as $dep): ?><option value="<?= $dep['id'] ?>"><?= e($dep['name']) ?></option><?php endforeach; ?>
+        </select>
+      </div>
       <div class="d-flex gap-2 justify-content-end">
         <button type="button" onclick="document.getElementById('specModal').style.display='none'" class="btn btn-secondary">Cancel</button>
         <button type="submit" class="btn-dmc">Save</button>
@@ -224,8 +249,8 @@ include __DIR__ . '/../includes/header.php'; ?>
 </div>
 
 <?php $extraScripts = "<script>
-function toggleSpec(role){document.getElementById('specField').style.display=role==='doctor'?'block':'none';}
+function toggleSpec(role){var show=role==='doctor'?'block':'none';document.getElementById('specField').style.display=show;document.getElementById('deptField').style.display=show;}
 function openReset(id,name){document.getElementById('resetUserId').value=id;document.getElementById('resetTitle').textContent='Reset Password: '+name;document.getElementById('resetModal').style.display='flex';}
-function openSpec(id,name,spec){document.getElementById('specUserId').value=id;document.getElementById('specTitle').textContent='Edit Specialization: '+name;var sel=document.getElementById('specInput');sel.value=spec;document.getElementById('specModal').style.display='flex';}
+function openSpec(id,name,spec,deptId){document.getElementById('specUserId').value=id;document.getElementById('specTitle').textContent='Edit Doctor: '+name;document.getElementById('specInput').value=spec;document.getElementById('deptInput').value=deptId||'';document.getElementById('specModal').style.display='flex';}
 </script>";
 include __DIR__ . '/../includes/footer.php';
