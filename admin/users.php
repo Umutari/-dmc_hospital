@@ -25,8 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hash = password_hash($pass, PASSWORD_DEFAULT);
             $uid  = execute("INSERT INTO users (first_name,last_name,email,phone,role,password,is_active) VALUES (?,?,?,?,?,?,1)",
                             [$fname,$lname,$email,$phone,$role,$hash]);
-            if ($role === 'doctor' && $spec) {
-                execute("INSERT INTO doctors (user_id,specialization) VALUES (?,?)", [$uid,$spec]);
+            if ($role === 'doctor') {
+                execute("INSERT INTO doctors (user_id,specialization) VALUES (?,?)", [$uid, $spec ?: null]);
             }
             audit('create_user','users',$uid,"Created $role: $fname $lname");
             flash('main',"User $fname $lname created successfully.");
