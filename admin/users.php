@@ -46,6 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             execute("UPDATE users SET is_active=? WHERE id=?", [$active, $uid]);
             flash('main','User status updated.');
         }
+    } elseif ($act === 'edit_spec') {
+        $uid  = (int)($_POST['user_id'] ?? 0);
+        $spec = trim($_POST['specialization'] ?? '');
+        if ($uid) {
+            $exists = scalar("SELECT COUNT(*) FROM doctors WHERE user_id=?", [$uid]);
+            if ($exists) {
+                execute("UPDATE doctors SET specialization=? WHERE user_id=?", [$spec ?: null, $uid]);
+            } else {
+                execute("INSERT INTO doctors (user_id,specialization) VALUES (?,?)", [$uid, $spec ?: null]);
+            }
+            audit('edit_specialization','doctors',$uid,"Specialization updated");
+            flash('main','Specialization updated successfully.');
+        }
     } elseif ($act === 'reset_pass') {
         $uid  = (int)($_POST['user_id'] ?? 0);
         $pass = trim($_POST['new_password'] ?? '');
@@ -115,6 +128,9 @@ include __DIR__ . '/../includes/header.php'; ?>
             </form>
             <?php endif; ?>
             <button onclick="openReset(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'].' '.$u['last_name'])) ?>')" class="btn btn-sm btn-outline-secondary" style="font-size:10px">Reset PW</button>
+            <?php if ($u['role'] === 'doctor'): ?>
+            <button onclick="openSpec(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'].' '.$u['last_name'])) ?>', '<?= e(addslashes($u['specialization'] ?? '')) ?>')" class="btn btn-sm btn-outline-primary" style="font-size:10px">Edit Spec</button>
+            <?php endif; ?>
           </div>
         </td>
       </tr>
@@ -175,8 +191,28 @@ include __DIR__ . '/../includes/header.php'; ?>
   </div>
 </div>
 
+<!-- Edit specialization modal -->
+<div id="specModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1050;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:min(380px,95vw)">
+    <strong id="specTitle" style="font-size:15px;display:block;margin-bottom:16px">Edit Specialization</strong>
+    <form method="POST">
+      <input type="hidden" name="act" value="edit_spec">
+      <input type="hidden" name="user_id" id="specUserId">
+      <div class="mb-3">
+        <label class="form-label">Specialization</label>
+        <input type="text" name="specialization" id="specInput" class="form-control" placeholder="e.g. Cardiology">
+      </div>
+      <div class="d-flex gap-2 justify-content-end">
+        <button type="button" onclick="document.getElementById('specModal').style.display='none'" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn-dmc">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <?php $extraScripts = "<script>
 function toggleSpec(role){document.getElementById('specField').style.display=role==='doctor'?'block':'none';}
 function openReset(id,name){document.getElementById('resetUserId').value=id;document.getElementById('resetTitle').textContent='Reset Password: '+name;document.getElementById('resetModal').style.display='flex';}
+function openSpec(id,name,spec){document.getElementById('specUserId').value=id;document.getElementById('specTitle').textContent='Edit Specialization: '+name;document.getElementById('specInput').value=spec;document.getElementById('specModal').style.display='flex';}
 </script>";
 include __DIR__ . '/../includes/footer.php';
