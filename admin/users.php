@@ -79,6 +79,13 @@ $users = $roleFilter === 'all'
     : rows("SELECT u.*, d.specialization FROM users u LEFT JOIN doctors d ON u.id=d.user_id WHERE u.role=? ORDER BY u.first_name", [$roleFilter]);
 
 $roles = ['admin','doctor','nurse','receptionist','pharmacist','accountant','lab_technician','patient'];
+$specializations = [
+    'General Medicine','Internal Medicine','Cardiology','Neurology','Dermatology',
+    'Gynecology','Pediatrics','Orthopedics','Ophthalmology','ENT',
+    'Psychiatry','Radiology','Anesthesiology','General Surgery','Urology',
+    'Nephrology','Gastroenterology','Pulmonology','Oncology','Endocrinology',
+    'Rheumatology','Infectious Disease','Emergency Medicine','Pathology','Other',
+];
 
 include __DIR__ . '/../includes/header.php'; ?>
 
@@ -163,7 +170,10 @@ include __DIR__ . '/../includes/header.php'; ?>
         </div>
         <div class="col-md-6" id="specField" style="display:none">
           <label class="form-label">Specialization <small class="text-muted">(doctors only)</small></label>
-          <input name="specialization" class="form-control" placeholder="e.g. Cardiology">
+          <select name="specialization" class="form-select">
+            <option value="">— Select specialization —</option>
+            <?php foreach ($specializations as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
+          </select>
         </div>
         <div class="col-12"><label class="form-label">Password *</label><input type="password" name="password" class="form-control" minlength="6" required></div>
         <div class="col-12 d-flex gap-2 justify-content-end">
@@ -200,7 +210,10 @@ include __DIR__ . '/../includes/header.php'; ?>
       <input type="hidden" name="user_id" id="specUserId">
       <div class="mb-3">
         <label class="form-label">Specialization</label>
-        <input type="text" name="specialization" id="specInput" class="form-control" placeholder="e.g. Cardiology">
+        <select name="specialization" id="specInput" class="form-select">
+          <option value="">— Select specialization —</option>
+          <?php foreach ($specializations as $s): ?><option value="<?= e($s) ?>"><?= e($s) ?></option><?php endforeach; ?>
+        </select>
       </div>
       <div class="d-flex gap-2 justify-content-end">
         <button type="button" onclick="document.getElementById('specModal').style.display='none'" class="btn btn-secondary">Cancel</button>
@@ -213,6 +226,6 @@ include __DIR__ . '/../includes/header.php'; ?>
 <?php $extraScripts = "<script>
 function toggleSpec(role){document.getElementById('specField').style.display=role==='doctor'?'block':'none';}
 function openReset(id,name){document.getElementById('resetUserId').value=id;document.getElementById('resetTitle').textContent='Reset Password: '+name;document.getElementById('resetModal').style.display='flex';}
-function openSpec(id,name,spec){document.getElementById('specUserId').value=id;document.getElementById('specTitle').textContent='Edit Specialization: '+name;document.getElementById('specInput').value=spec;document.getElementById('specModal').style.display='flex';}
+function openSpec(id,name,spec){document.getElementById('specUserId').value=id;document.getElementById('specTitle').textContent='Edit Specialization: '+name;var sel=document.getElementById('specInput');sel.value=spec;document.getElementById('specModal').style.display='flex';}
 </script>";
 include __DIR__ . '/../includes/footer.php';
