@@ -281,8 +281,6 @@ new Chart(document.getElementById('methodChart'), {
 });
 " : "") . "
 
-// Make outstanding table sortable
-\$('#outTable').DataTable({ pageLength: 25, order: [[7,'desc']], columnDefs:[{orderable:false,targets:[]}] });
 </script>";
 
 include __DIR__ . '/../includes/footer.php';
