@@ -10,6 +10,7 @@ function jsonOk(array $data = []): void  { echo json_encode(['ok' => true]  + $d
 function jsonErr(string $msg): void      { echo json_encode(['ok' => false, 'error' => $msg]); exit; }
 
 match($action) {
+    'send_reminder'      => sendReminder($body),
     'collect_payment'    => collectPayment($body),
     'pay_all_invoices'   => payAllInvoices($body),
     'mark_all_read'      => markAllRead(),
@@ -26,6 +27,29 @@ match($action) {
     'get_doctor_slots'   => getDoctorSlots($body),
     default              => jsonErr('Unknown action'),
 };
+
+/* ─────────────────────────────── REMINDER ────────────────────────── */
+function sendReminder(array $b): void {
+    requireRoles(['accountant','admin']);
+    $invoiceId = (int)($b['invoice_id'] ?? 0);
+    if (!$invoiceId) jsonErr('Invalid invoice.');
+
+    $inv = row("SELECT i.invoice_no, i.balance, p.first_name, p.phone
+                FROM invoices i JOIN patients p ON i.patient_id=p.id WHERE i.id=?", [$invoiceId]);
+    if (!$inv) jsonErr('Invoice not found.');
+    if (!$inv['phone']) jsonErr('Patient has no phone number on file.');
+
+    $amount = 'RWF ' . number_format((float)$inv['balance'], 0, '.', ',');
+    $msg    = "Dear {$inv['first_name']}, you have an outstanding balance of {$amount} on invoice #{$inv['invoice_no']} at DMC. Please visit us to settle your payment.";
+
+    $status = sendSMS($inv['phone'], $msg);
+    if ($status === 'sent') {
+        audit('send_reminder', 'invoices', $invoiceId, "Payment reminder sent to {$inv['phone']}");
+        jsonOk();
+    } else {
+        jsonErr('SMS delivery failed. Please try again.');
+    }
+}
 
 /* ─────────────────────────────── PAYMENT ─────────────────────────── */
 function collectPayment(array $b): void {

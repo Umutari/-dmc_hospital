@@ -11,7 +11,7 @@ $stats = [
 ];
 
 $recentPayments = rows("SELECT p.*, i.invoice_no, CONCAT(pt.first_name,' ',pt.last_name) AS pname, pt.phone FROM payments p JOIN invoices i ON p.invoice_id=i.id JOIN patients pt ON p.patient_id=pt.id ORDER BY p.paid_at DESC LIMIT 8");
-$pendingInvoices = rows("SELECT i.*, CONCAT(p.first_name,' ',p.last_name) AS pname FROM invoices i JOIN patients p ON i.patient_id=p.id WHERE i.status IN('draft','issued','partial') ORDER BY i.created_at DESC LIMIT 8");
+$pendingInvoices = rows("SELECT i.*, CONCAT(p.first_name,' ',p.last_name) AS pname, p.first_name, p.phone FROM invoices i JOIN patients p ON i.patient_id=p.id WHERE i.status IN('draft','issued','partial') ORDER BY i.created_at DESC LIMIT 8");
 
 include __DIR__ . '/../includes/header.php'; ?>
 
@@ -47,7 +47,7 @@ include __DIR__ . '/../includes/header.php'; ?>
             <td><?= money($inv['total']) ?></td>
             <td style="color:var(--danger);font-weight:600"><?= money($inv['balance']) ?></td>
             <td><span class="badge-status bs-<?= $inv['status'] ?>"><?= ucfirst($inv['status']) ?></span></td>
-            <td><a href="/dmc/accountant/payments.php?invoice_id=<?= $inv['id'] ?>" class="btn btn-sm btn-success" style="font-size:11px">Collect</a></td>
+            <td><button class="btn btn-sm btn-warning" style="font-size:11px" onclick="sendReminder(<?= $inv['id'] ?>)">Remind</button></td>
           </tr>
           <?php endforeach; else: ?>
           <tr><td colspan="6" class="text-center text-muted py-3">No pending invoices</td></tr>
@@ -73,5 +73,17 @@ include __DIR__ . '/../includes/header.php'; ?>
     </div>
   </div>
 </div>
+
+<script>
+function sendReminder(invoiceId) {
+  fetch('/dmc/api/ajax.php', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({action: 'send_reminder', invoice_id: invoiceId})
+  }).then(r => r.json()).then(j => {
+    if (j.ok) toast('Reminder sent to patient successfully!');
+    else toast(j.error || 'Failed to send reminder', 'danger');
+  });
+}
+</script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

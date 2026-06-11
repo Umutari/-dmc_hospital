@@ -31,19 +31,6 @@ include __DIR__ . '/../includes/header.php'; ?>
         <div class="d-flex justify-content-between"><span style="font-size:13px;font-weight:700">Balance Due</span><strong style="color:var(--danger);font-size:16px"><?= money($invoice['balance']) ?></strong></div>
       </div>
 
-      <?php if ($insurance): ?>
-      <div class="p-3 mb-3 rounded" style="background:#f0f8ff;border-left:4px solid #1A6BB5">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Insurance Coverage</strong></div>
-        <div class="d-flex justify-content-between mb-1"><span style="font-size:12px">Provider</span><strong><?= e($invoice['insurance_provider']) ?></strong></div>
-        <div class="d-flex justify-content-between"><span style="font-size:12px">Coverage</span><span style="background:#1A6BB5;color:#fff;padding:2px 6px;border-radius:4px;font-weight:600;font-size:11px"><?= $insurance['coverage_percentage'] ?>% / <?= $insurance['patient_percentage'] ?>%</span></div>
-      </div>
-
-      <div id="insuranceBreakdown" class="p-3 mb-3 rounded" style="background:#f5f5f5;display:none">
-        <div style="font-size:12px;color:var(--muted);margin-bottom:8px"><strong>Payment Breakdown</strong></div>
-        <div class="d-flex justify-content-between mb-1"><span style="font-size:12px">Insurance Covers</span><strong style="color:#0A2342" id="insAmount">RWF 0</strong></div>
-        <div class="d-flex justify-content-between"><span style="font-size:12px">Patient Pays</span><strong style="color:var(--danger)" id="patAmount">RWF 0</strong></div>
-      </div>
-      <?php endif; ?>
 
       <!-- Cash payment form -->
       <form id="cashForm">
@@ -248,33 +235,7 @@ function resendOtp() {
 }
 </script>";
 
-if ($insurance) {
-    $extraScripts .= "<script>
-const insuranceCoveragePct = " . ((int)$insurance['coverage_percentage']) . ";
 
-function calculateInsuranceBreakdown() {
-  const amount = parseFloat(document.getElementById('payAmount').value) || 0;
-  const insuranceAmount = Math.round((amount * insuranceCoveragePct / 100) * 100) / 100;
-  const patientAmount = amount - insuranceAmount;
-
-  function formatMoney(n) {
-    return 'RWF ' + n.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 2});
-  }
-
-  document.getElementById('insAmount').textContent = formatMoney(insuranceAmount);
-  document.getElementById('patAmount').textContent = formatMoney(patientAmount);
-  document.getElementById('insuranceBreakdown').style.display = 'block';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  const amountInput = document.getElementById('payAmount');
-  if (amountInput) {
-    amountInput.addEventListener('input', calculateInsuranceBreakdown);
-    calculateInsuranceBreakdown();
-  }
-});
-</script>";
-}
 ?>
 
 <?php include __DIR__ . '/../includes/footer.php';
