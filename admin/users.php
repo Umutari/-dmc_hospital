@@ -60,6 +60,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             audit('edit_department','doctors',$uid,"Department updated");
             flash('main','Doctor department updated successfully.');
         }
+    } elseif ($act === 'edit_user') {
+        $uid   = (int)($_POST['user_id'] ?? 0);
+        $fname = trim($_POST['first_name'] ?? '');
+        $lname = trim($_POST['last_name']  ?? '');
+        $phone = trim($_POST['phone']      ?? '');
+        if (!$uid || !$fname || !$lname) {
+            flash('main','Name is required.','danger');
+        } else {
+            $user = row("SELECT * FROM users WHERE id=?", [$uid]);
+            execute("UPDATE users SET first_name=?, last_name=?, phone=? WHERE id=?",
+                    [$fname, $lname, $phone, $uid]);
+            if ($user['role'] === 'patient') {
+                execute("UPDATE patients SET first_name=?, last_name=?, phone=? WHERE email=?",
+                        [$fname, $lname, $phone, $user['email']]);
+            }
+            audit('edit_user','users',$uid,"Updated name/phone");
+            flash('main','User updated successfully.');
+        }
     } elseif ($act === 'reset_pass') {
         $uid  = (int)($_POST['user_id'] ?? 0);
         $pass = trim($_POST['new_password'] ?? '');
@@ -129,6 +147,7 @@ include __DIR__ . '/../includes/header.php'; ?>
               <button type="submit" class="btn btn-sm <?= $u['is_active']?'btn-outline-danger':'btn-outline-success' ?>" style="font-size:10px"><?= $u['is_active']?'Deactivate':'Activate' ?></button>
             </form>
             <?php endif; ?>
+            <button onclick="openEdit(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'])) ?>', '<?= e(addslashes($u['last_name'])) ?>', '<?= e(addslashes($u['phone'] ?? '')) ?>')" class="btn btn-sm btn-outline-primary" style="font-size:10px">Edit</button>
             <button onclick="openReset(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'].' '.$u['last_name'])) ?>')" class="btn btn-sm btn-outline-secondary" style="font-size:10px">Reset PW</button>
             <?php if ($u['role'] === 'doctor'): ?>
             <button onclick="openDept(<?= $u['id'] ?>, '<?= e(addslashes($u['first_name'].' '.$u['last_name'])) ?>', <?= (int)($u['department_id'] ?? 0) ?>)" class="btn btn-sm btn-outline-primary" style="font-size:10px">Edit Dept</button>
@@ -180,6 +199,29 @@ include __DIR__ . '/../includes/header.php'; ?>
   </div>
 </div>
 
+<!-- Edit user modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1050;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:28px;width:min(440px,95vw)">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <strong id="editTitle" style="font-size:15px">Edit User</strong>
+      <button onclick="document.getElementById('editModal').style.display='none'" class="btn btn-sm btn-outline-secondary">✕</button>
+    </div>
+    <form method="POST">
+      <input type="hidden" name="act" value="edit_user">
+      <input type="hidden" name="user_id" id="editUserId">
+      <div class="row g-3">
+        <div class="col-md-6"><label class="form-label">First Name *</label><input name="first_name" id="editFname" class="form-control" required></div>
+        <div class="col-md-6"><label class="form-label">Last Name *</label><input name="last_name" id="editLname" class="form-control" required></div>
+        <div class="col-12"><label class="form-label">Phone</label><input name="phone" id="editPhone" class="form-control" placeholder="07XXXXXXXX"></div>
+        <div class="col-12 d-flex gap-2 justify-content-end">
+          <button type="button" onclick="document.getElementById('editModal').style.display='none'" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn-dmc">Save Changes</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Reset password modal -->
 <div id="resetModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1050;align-items:center;justify-content:center">
   <div style="background:#fff;border-radius:12px;padding:28px;width:min(360px,95vw)">
@@ -220,6 +262,7 @@ include __DIR__ . '/../includes/header.php'; ?>
 
 <?php $extraScripts = "<script>
 function toggleDept(role){document.getElementById('deptField').style.display=role==='doctor'?'block':'none';}
+function openEdit(id,fname,lname,phone){document.getElementById('editUserId').value=id;document.getElementById('editFname').value=fname;document.getElementById('editLname').value=lname;document.getElementById('editPhone').value=phone;document.getElementById('editTitle').textContent='Edit: '+fname+' '+lname;document.getElementById('editModal').style.display='flex';}
 function openReset(id,name){document.getElementById('resetUserId').value=id;document.getElementById('resetTitle').textContent='Reset Password: '+name;document.getElementById('resetModal').style.display='flex';}
 function openDept(id,name,deptId){document.getElementById('deptUserId').value=id;document.getElementById('deptTitle').textContent='Edit Department: '+name;document.getElementById('deptInput').value=deptId||'';document.getElementById('deptModal').style.display='flex';}
 </script>";
