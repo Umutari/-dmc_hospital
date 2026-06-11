@@ -132,6 +132,7 @@ function sendSMS(string $phone, string $message): string {
     $token     = setting('mista_api_key') ?: '691|noH******************************wuaZx';
     $senderId  = setting('sms_sender_id') ?: 'E-Notifier';
     $clean     = preg_replace('/[^0-9]/', '', preg_replace('/^\+?250/', '', $phone));
+    $clean     = ltrim($clean, '0'); // strip leading 0 from local format (07XXXXXXXX → 7XXXXXXXX)
     $contact   = '+250' . $clean;
     $curl = curl_init();
     curl_setopt_array($curl, [
