@@ -16,12 +16,13 @@ if (isset($_SESSION['pending_2fa']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim($_POST['action'] ?? '');
 
     if ($action === 'resend_otp') {
-        $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $otp = '000000'; // PRESENTATION MODE: hardcoded OTP
         $_SESSION['pending_2fa']['otp']   = $otp;
         $_SESSION['pending_2fa']['exp']   = time() + 600;
         $_SESSION['pending_2fa']['tries'] = 0;
-        sendSMS($_SESSION['pending_2fa']['phone'],
-            "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
+        // sendSMS($_SESSION['pending_2fa']['phone'],
+        //     "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
         $otp_message = 'A new code has been sent to your phone.';
     } else {
         $entered = trim($_POST['otp'] ?? '');
@@ -67,7 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_SESSION['pending_2fa']) &&
     if ($email && $pass) {
         $user = row("SELECT * FROM users WHERE email = ? AND is_active = 1", [$email]);
         if ($user && password_verify($pass, $user['password'])) {
-            $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            // $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otp = '000000'; // PRESENTATION MODE: hardcoded OTP
             $_SESSION['pending_2fa'] = [
                 'user'  => $user,
                 'otp'   => $otp,
@@ -75,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_SESSION['pending_2fa']) &&
                 'tries' => 0,
                 'phone' => $user['phone'],
             ];
-            sendSMS($user['phone'],
-                "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
+            // sendSMS($user['phone'],
+            //     "DMC Hospital\nYour login code: $otp\nValid 10 min. Do NOT share. KK 541 St, Kigali.");
             header('Location: /dmc/index.php'); exit;
         }
         $error = 'Invalid email or password.';
