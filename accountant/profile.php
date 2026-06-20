@@ -107,7 +107,7 @@ include __DIR__ . '/../includes/header.php'; ?>
             <td><?= e($pay['pname']) ?></td>
             <td style="font-family:monospace;font-size:11px"><?= e($pay['invoice_no']) ?></td>
             <td style="font-weight:600"><?= money($pay['amount']) ?></td>
-            <td><?= ucfirst(str_replace('_',' ',$pay['method'])) ?></td>
+            <td><?= methodLabel($pay['method']) ?></td>
             <td style="font-size:11px"><?= dtF($pay['paid_at']) ?></td>
           </tr>
           <?php endforeach; ?>

@@ -59,6 +59,16 @@ function execute(string $sql, array $params = []): int {
 function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 function money(float $n): string { return 'RWF ' . number_format($n, 0, '.', ','); }
 function dateF(string $d): string { return $d ? date('d M Y', strtotime($d)) : '—'; }
+function methodLabel(string $m): string {
+    return match($m) {
+        'momo','momo_mtn','momo_airtel' => 'MoMo Pay',
+        'card'          => 'Bank Transfer (Card)',
+        'bank_transfer' => 'Bank Transfer',
+        'cash'          => 'Cash',
+        'insurance'     => 'Insurance',
+        default         => ucfirst(str_replace('_', ' ', $m)),
+    };
+}
 function timeF(string $t): string { return $t ? date('h:i A', strtotime($t)) : '—'; }
 function dtF(string $dt): string  { return $dt ? date('d M Y, h:i A', strtotime($dt)) : '—'; }
 function age(string $dob): int    { return (int)date_diff(date_create($dob), date_create('today'))->y; }

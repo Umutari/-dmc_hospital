@@ -190,7 +190,7 @@ include __DIR__ . '/../includes/header.php'; ?>
       <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" style="background:var(--bg);font-size:12.5px">
         <div>
           <div style="font-weight:600"><?= money($pay['amount']) ?></div>
-          <div style="font-size:11px;color:var(--muted)"><?= ucfirst(str_replace('_',' ',$pay['method'])) ?> · <?= dtF($pay['paid_at']) ?></div>
+          <div style="font-size:11px;color:var(--muted)"><?= methodLabel($pay['method']) ?> · <?= dtF($pay['paid_at']) ?></div>
           <div style="font-size:10px;font-family:monospace"><?= e($pay['payment_no']) ?></div>
         </div>
         <span class="badge-status bs-<?= $pay['status'] ?>"><?= ucfirst($pay['status']) ?></span>

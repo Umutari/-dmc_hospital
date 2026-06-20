@@ -225,8 +225,8 @@ include __DIR__ . '/../includes/header.php'; ?>
 </div>
 
 <?php
-$methodLabels = array_map(fn($r) => ucfirst(str_replace('_',' ',$r['method'])), $methodData);
-$methodValues = array_map(fn($r) => (float)$r['total'], $methodData);
+$methodLabels  = array_map(fn($r) => methodLabel($r['method']) . ' — RWF ' . number_format($r['total'], 0, '.', ','), $methodData);
+$methodValues  = array_map(fn($r) => (float)$r['total'], $methodData);
 
 $extraScripts = "<script>
 // Revenue per day
@@ -276,7 +276,10 @@ new Chart(document.getElementById('methodChart'), {
   },
   options: {
     responsive: true,
-    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } }
+    plugins: {
+      legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+      tooltip: { callbacks: { label: ctx => ' RWF ' + ctx.parsed.toLocaleString() } }
+    }
   }
 });
 " : "") . "

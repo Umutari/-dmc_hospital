@@ -95,7 +95,7 @@ include __DIR__ . '/../includes/header.php'; ?>
             <td><?= e($pay['pname']) ?></td>
             <td><?= e($pay['invoice_no']) ?></td>
             <td style="font-weight:600"><?= money($pay['amount']) ?></td>
-            <td><?= ucfirst(str_replace('_',' ',$pay['method'])) ?></td>
+            <td><?= methodLabel($pay['method']) ?></td>
             <td><span class="badge-status bs-<?= $pay['status'] ?>"><?= ucfirst($pay['status']) ?></span></td>
             <td style="font-size:11px"><?= dtF($pay['paid_at']) ?></td>
           </tr>

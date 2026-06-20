@@ -179,7 +179,7 @@ include __DIR__ . '/../includes/header.php'; ?>
       <div class="mt-2">
         <?php foreach ($byMethod as $bm): ?>
         <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:12px">
-          <span><?= ucfirst(str_replace('_',' ',$bm['method'])) ?></span>
+          <span><?= methodLabel($bm['method']) ?></span>
           <strong><?= money($bm['total']) ?></strong>
         </div>
         <?php endforeach; ?>
@@ -311,7 +311,7 @@ include __DIR__ . '/../includes/header.php'; ?>
         <td><?= e($t['pname']) ?></td>
         <td style="font-family:monospace;font-size:11px"><?= e($t['invoice_no']) ?></td>
         <td style="font-weight:600"><?= money($t['amount']) ?></td>
-        <td><?= ucfirst(str_replace('_',' ',$t['method'])) ?></td>
+        <td><?= methodLabel($t['method']) ?></td>
         <td style="font-size:11px"><?= dtF($t['paid_at']) ?></td>
       </tr>
       <?php endforeach; else: ?>
@@ -330,7 +330,7 @@ include __DIR__ . '/../includes/header.php'; ?>
 </style>
 
 <?php
-$methodLabels = array_map(fn($m) => ucfirst(str_replace('_',' ',$m['method'])), $byMethod);
+$methodLabels = array_map(fn($m) => methodLabel($m['method']), $byMethod);
 $methodValues = array_column($byMethod, 'total');
 $extraScripts = "<script>
 new Chart(document.getElementById('revChart'),{

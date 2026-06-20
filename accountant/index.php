@@ -65,7 +65,7 @@ include __DIR__ . '/../includes/header.php'; ?>
         <div class="stat-icon si-green" style="width:36px;height:36px;font-size:15px;border-radius:8px"><i class="bi bi-check-circle"></i></div>
         <div class="flex-1">
           <div style="font-size:12.5px;font-weight:600"><?= e($pay['pname']) ?></div>
-          <div style="font-size:11px;color:var(--muted)"><?= e($pay['invoice_no']) ?> · <?= ucfirst(str_replace('_',' ',$pay['method'])) ?></div>
+          <div style="font-size:11px;color:var(--muted)"><?= e($pay['invoice_no']) ?> · <?= methodLabel($pay['method']) ?></div>
         </div>
         <div style="font-size:13px;font-weight:700;color:var(--success)"><?= money($pay['amount']) ?></div>
       </div>
