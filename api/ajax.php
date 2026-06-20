@@ -67,12 +67,15 @@ function collectPayment(array $b): void {
     $inv     = row("SELECT * FROM invoices WHERE id = ?", [$invoiceId]);
     if (!$inv) jsonErr('Invoice not found.');
 
-    /* check patient account balance — must have enough to cover this payment */
     $patient = row("SELECT * FROM patients WHERE id=?", [$patientId]);
     if (!$patient) jsonErr('Patient not found.');
-    $patAcct = (float)$patient['balance'];
-    if ($patAcct < 0.01) jsonErr('Patient account has no outstanding balance.');
-    if ($amount > $patAcct + 0.01) jsonErr('Amount (RWF '.number_format($amount).') exceeds patient account balance (RWF '.number_format($patAcct).').');
+
+    /* patient account balance check only applies to self-pay via patient portal */
+    if (currentRole() === 'patient') {
+        $patAcct = (float)$patient['balance'];
+        if ($patAcct < 0.01) jsonErr('Patient account has no outstanding balance.');
+        if ($amount > $patAcct + 0.01) jsonErr('Amount (RWF '.number_format($amount).') exceeds patient account balance (RWF '.number_format($patAcct).').');
+    }
 
     /* patient portion = patient_amount if set (insurance applied), otherwise full total */
     $patientPortion = $inv['patient_amount'] !== null ? (float)$inv['patient_amount'] : (float)$inv['total'];
@@ -82,8 +85,8 @@ function collectPayment(array $b): void {
     $invBalance  = max(0, $patientPortion - $alreadyPaid);
     if ($amount > $invBalance + 0.01) jsonErr('Amount exceeds this invoice balance (RWF '.number_format($invBalance).').');
 
-    $status = in_array($method, ['momo_mtn','momo_airtel','card']) && $flwTxid ? 'success' : 'success';
-    if (in_array($method, ['insurance','bank_transfer'])) $status = 'pending';
+    $status = 'success';
+    if (currentRole() === 'patient' && in_array($method, ['insurance','bank_transfer'])) $status = 'pending';
 
     $payNo = generateNo('DMC-PAY', 'payments', 'payment_no');
     $payId = execute(

@@ -38,7 +38,7 @@ include __DIR__ . '/../includes/header.php'; ?>
         <input type="hidden" name="patient_id" value="<?= $invoice['patient_id'] ?>">
         <div class="mb-3">
           <label class="form-label">Amount Received (RWF) *</label>
-          <input type="number" name="amount" id="payAmount" class="form-control" min="1" max="<?= $invoice['balance'] ?>" value="<?= $invoice['balance'] ?>" required>
+          <input type="number" name="amount" id="payAmount" class="form-control" min="1" max="<?= (int)$invoice['balance'] ?>" value="<?= (int)$invoice['balance'] ?>" required>
         </div>
         <div class="mb-3">
           <label class="form-label">Payment Method</label>
