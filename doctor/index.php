@@ -46,7 +46,9 @@ include __DIR__ . '/../includes/header.php'; ?>
         </div>
         <div class="d-flex gap-1">
           <span class="badge-status bs-<?= $a['status'] ?>"><?= ucfirst($a['status']) ?></span>
+          <?php if (!in_array($a['status'], ['completed','cancelled'])): ?>
           <a href="/dmc/doctor/records.php?patient_id=<?= $a['patient_id'] ?>&appt_id=<?= $a['id'] ?>" class="btn btn-sm btn-primary" style="font-size:11px">Attend</a>
+          <?php endif; ?>
         </div>
       </div>
       <?php endforeach; else: ?>
