@@ -49,8 +49,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$doctors = rows("SELECT u.id, CONCAT(u.first_name,' ',u.last_name) AS name, d.specialization
-    FROM users u LEFT JOIN doctors d ON u.id=d.user_id
+$doctors = rows("SELECT u.id, CONCAT(u.first_name,' ',u.last_name) AS name,
+    COALESCE(d.specialization, dep.name) AS specialization
+    FROM users u
+    LEFT JOIN doctors d ON u.id=d.user_id
+    LEFT JOIN departments dep ON d.department_id=dep.id
     WHERE u.role='doctor' AND u.is_active=1 ORDER BY u.first_name");
 
 include __DIR__ . '/../includes/header.php'; ?>

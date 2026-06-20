@@ -29,8 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         [$fname,$lname,$email,$phone,$role,$hash]);
                 $uid = (int)db()->lastInsertId();
                 if ($role === 'doctor') {
-                    execute("INSERT INTO doctors (user_id,department_id) VALUES (?,?)",
-                            [$uid, $dept_id ?: null]);
+                    $deptName = $dept_id ? scalar("SELECT name FROM departments WHERE id=?", [$dept_id]) : null;
+                    execute("INSERT INTO doctors (user_id,department_id,specialization) VALUES (?,?,?)",
+                            [$uid, $dept_id ?: null, $deptName]);
                 }
                 db()->commit();
                 audit('create_user','users',$uid,"Created $role: $fname $lname");
@@ -51,11 +52,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $uid     = (int)($_POST['user_id'] ?? 0);
         $dept_id = (int)($_POST['department_id'] ?? 0);
         if ($uid) {
+            $deptName = $dept_id ? scalar("SELECT name FROM departments WHERE id=?", [$dept_id]) : null;
             $exists = scalar("SELECT COUNT(*) FROM doctors WHERE user_id=?", [$uid]);
             if ($exists) {
-                execute("UPDATE doctors SET department_id=? WHERE user_id=?", [$dept_id ?: null, $uid]);
+                execute("UPDATE doctors SET department_id=?, specialization=? WHERE user_id=?", [$dept_id ?: null, $deptName, $uid]);
             } else {
-                execute("INSERT INTO doctors (user_id,department_id) VALUES (?,?)", [$uid, $dept_id ?: null]);
+                execute("INSERT INTO doctors (user_id,department_id,specialization) VALUES (?,?,?)", [$uid, $dept_id ?: null, $deptName]);
             }
             audit('edit_department','doctors',$uid,"Department updated");
             flash('main','Doctor department updated successfully.');
