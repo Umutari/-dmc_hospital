@@ -185,7 +185,7 @@ body{font-family:'Sora',sans-serif;background:linear-gradient(135deg,#0A2342 0%,
     <div class="right-title" style="text-align:center">Two-Step Verification</div>
     <div class="right-sub" style="text-align:center">
       A 6-digit code was sent via SMS to<br>
-      <strong style="color:#0A2342">+250 <?= e($maskedPhone) ?></strong>
+      <strong style="color:#0A2342">(+250) <?= e($maskedPhone) ?></strong>
     </div>
 
     <?php if ($otp_error): ?>
