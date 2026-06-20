@@ -47,7 +47,7 @@ while ($cur <= $end) {
 }
 
 /* ── Revenue by payment method ── */
-$methodData = rows("SELECT method, COALESCE(SUM(amount),0) AS total FROM payments WHERE status='success' AND DATE(paid_at) BETWEEN ? AND ? GROUP BY method ORDER BY total DESC", [$from, $to]);
+$methodData = rows("SELECT method, COALESCE(SUM(amount),0) AS total FROM payments WHERE status='success' AND method IS NOT NULL AND method != '' AND DATE(paid_at) BETWEEN ? AND ? GROUP BY method ORDER BY total DESC", [$from, $to]);
 
 /* ── Outstanding balances by patient ── */
 $outstandingList = rows(

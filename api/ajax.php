@@ -57,7 +57,7 @@ function collectPayment(array $b): void {
     $invoiceId = (int)($b['invoice_id'] ?? 0);
     $patientId = (int)($b['patient_id'] ?? 0);
     $amount    = (float)($b['amount'] ?? 0);
-    $method    = trim($b['method'] ?? 'cash');
+    $method    = trim($b['method'] ?? 'momo');
     $notes     = trim($b['notes'] ?? '');
     $flwTxid   = trim($b['flw_txid'] ?? '');
     $flwRef    = trim($b['flw_ref'] ?? '');
@@ -261,7 +261,7 @@ function payAllInvoices(array $b): void {
     requireRoles(['accountant','admin','patient']);
     $patientId = (int)($b['patient_id'] ?? 0);
     $amount    = (float)($b['amount'] ?? 0);
-    $method    = trim($b['method'] ?? 'cash');
+    $method    = trim($b['method'] ?? 'momo');
     $flwTxid   = trim($b['flw_txid'] ?? '');
     $flwRef    = trim($b['flw_ref'] ?? '');
 
