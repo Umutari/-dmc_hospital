@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/functions.php';
-requireRoles(['doctor','admin']);
+requireRoles(['doctor']);
 $pageTitle = 'Medical Records';
 $uid = currentUserId();
 

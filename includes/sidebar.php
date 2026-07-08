@@ -7,7 +7,6 @@ $menus = [
         ['icon'=>'building','label'=>'Departments','url'=>'/dmc/admin/departments.php'],
         ['icon'=>'person-badge','label'=>'Patients','url'=>'/dmc/admin/patients.php'],
         ['icon'=>'calendar-check','label'=>'Appointments','url'=>'/dmc/admin/appointments.php'],
-        ['icon'=>'file-earmark-text','label'=>'Medical Records','url'=>'/dmc/admin/records.php'],
         ['icon'=>'capsule','label'=>'Pharmacy','url'=>'/dmc/admin/pharmacy.php'],
         ['icon'=>'flask','label'=>'Laboratory','url'=>'/dmc/admin/lab.php'],
         ['icon'=>'receipt','label'=>'Billing','url'=>'/dmc/admin/billing.php'],
