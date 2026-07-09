@@ -15,7 +15,7 @@ elseif ($period === 'year') { $from = date('Y-01-01'); $to = date('Y-m-d'); }
 /* single result detail */
 $viewId = (int)($_GET['id'] ?? 0);
 if ($viewId) {
-    $order = row("SELECT lo.*, CONCAT(p.first_name,' ',p.last_name) AS pname, p.patient_no, p.dob, p.gender, p.phone,
+    $order = row("SELECT lo.*, CONCAT(p.first_name,' ',p.last_name) AS pname, p.patient_no, p.date_of_birth, p.gender, p.phone,
         CONCAT(u.first_name,' ',u.last_name) AS dname, d.name AS dept_name
         FROM lab_orders lo
         JOIN patients p ON lo.patient_id=p.id
@@ -87,7 +87,7 @@ include __DIR__ . '/../includes/header.php'; ?>
           </div>
           <div class="p-3 rounded" style="background:var(--bg)">
             <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Gender</span><span><?= ucfirst($order['gender']??'') ?></span></div>
-            <?php if ($order['dob']): ?><div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Age</span><span><?= age($order['dob']) ?> yrs</span></div><?php endif; ?>
+            <?php if ($order['date_of_birth']): ?><div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Age</span><span><?= age($order['date_of_birth']) ?> yrs</span></div><?php endif; ?>
             <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Phone</span><span><?= e($order['phone']) ?></span></div>
             <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Ordered by</span><span>Dr. <?= e($order['dname']) ?></span></div>
             <?php if ($order['dept_name']): ?><div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Department</span><span><?= e($order['dept_name']) ?></span></div><?php endif; ?>
