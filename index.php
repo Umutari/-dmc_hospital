@@ -46,7 +46,7 @@ if (isset($_SESSION['pending_2fa']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user']    = $user;
                 execute("UPDATE users SET updated_at = NOW() WHERE id = ?", [$user['id']]);
                 audit('login', 'users', $user['id'], 'User logged in (2FA)');
-                header('Location: ' . dashboardUrl()); exit;
+                header('Location: ' . ($user['must_change_password'] ? '/dmc/change_password.php' : dashboardUrl())); exit;
             }
         } else {
             $_SESSION['pending_2fa']['tries']++;
@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_SESSION['pending_2fa']) &&
 if (isLoggedIn()) {
     $valid_roles = ['admin', 'doctor', 'nurse', 'receptionist', 'pharmacist', 'accountant', 'lab_technician', 'patient'];
     if (isset($_SESSION['role']) && in_array($_SESSION['role'], $valid_roles)) {
-        header('Location: ' . dashboardUrl()); exit;
+        header('Location: ' . (!empty($_SESSION['user']['must_change_password']) ? '/dmc/change_password.php' : dashboardUrl())); exit;
     }
     session_destroy();
 }

@@ -4,6 +4,7 @@ requireRoles(['receptionist','admin']);
 $pageTitle = 'Register Patient';
 
 $error = $success = '';
+$portalCreds = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $f = ['first_name','last_name','date_of_birth','gender','blood_group','phone','email','address','emergency_contact_name','emergency_contact_phone','insurance_provider','insurance_number'];
     $d = [];
@@ -17,11 +18,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $no = generateNo('DMC-P', 'patients', 'patient_no');
             execute("INSERT INTO patients (patient_no,first_name,last_name,date_of_birth,gender,blood_group,phone,email,address,emergency_contact_name,emergency_contact_phone,insurance_provider,insurance_number,registered_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [$no, $d['first_name'], $d['last_name'], $d['date_of_birth']?:null, $d['gender'], $d['blood_group'], $d['phone'], $d['email'], $d['address'], $d['emergency_contact_name'], $d['emergency_contact_phone'], $d['insurance_provider'], $d['insurance_number'], currentUserId()]);
-            /* send welcome SMS */
-            sendSMS($d['phone'], "Welcome to DMC Hospital, {$d['first_name']}! Your patient ID is $no. Address: KK 541 St, Kigali. Tel: 0782 749 660");
+
+            /* one-time patient portal login — no email needed from reception; a placeholder is generated
+               and the patient must set their real email + a new password on first login */
+            $tempEmail = strtolower(preg_replace('/[^a-z0-9]/i', '', $no)) . '@patient.dmc.rw';
+            $tempPass  = generateTempPassword();
+            execute("INSERT INTO users (first_name,last_name,email,phone,password,role,is_active,must_change_password) VALUES (?,?,?,?,?,'patient',1,1)",
+                [$d['first_name'], $d['last_name'], $tempEmail, $d['phone'], password_hash($tempPass, PASSWORD_DEFAULT)]);
+            $portalCreds = ['email' => $tempEmail, 'password' => $tempPass];
+            sendSMS($d['phone'], "Welcome to DMC Hospital, {$d['first_name']}! Patient ID: $no. Portal login — Email: $tempEmail, Password: $tempPass. Please log in and set your real email & a new password.");
+
             audit('register_patient', 'patients', 0, "Registered patient $no");
-            flash('main', "Patient {$d['first_name']} {$d['last_name']} registered successfully. ID: $no");
-            header('Location: /dmc/receptionist/patients.php'); exit;
+            $success = "Patient {$d['first_name']} {$d['last_name']} registered successfully. ID: $no";
         }
     }
 }
@@ -34,6 +42,19 @@ include __DIR__ . '/../includes/header.php'; ?>
 </div>
 
 <?php if ($error): ?><div class="alert alert-danger"><i class="bi bi-exclamation-circle me-2"></i><?= e($error) ?></div><?php endif; ?>
+
+<?php if ($portalCreds): ?>
+<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i><?= e($success) ?></div>
+<div class="dmc-card" style="max-width:520px;margin:0 auto">
+  <div class="dmc-card-title"><i class="bi bi-key me-2"></i>One-Time Patient Portal Login</div>
+  <p style="font-size:12.5px;color:var(--muted)">This was also sent by SMS to the patient's phone. They'll use it to log in once, then will be required to set their own email and a new password before doing anything else. Shown only once here.</p>
+  <div class="p-3 rounded" style="background:var(--bg);font-size:14px">
+    <div class="d-flex justify-content-between mb-2"><span style="color:var(--muted)">Email</span><strong><?= e($portalCreds['email']) ?></strong></div>
+    <div class="d-flex justify-content-between"><span style="color:var(--muted)">Temporary Password</span><strong style="font-family:monospace;letter-spacing:1px"><?= e($portalCreds['password']) ?></strong></div>
+  </div>
+  <a href="/dmc/receptionist/patients.php" class="btn-dmc w-100 mt-3">Continue</a>
+</div>
+<?php else: ?>
 
 <form method="POST" class="row g-3">
   <div class="col-12">
@@ -62,7 +83,11 @@ include __DIR__ . '/../includes/header.php'; ?>
           </select>
         </div>
         <div class="col-md-4"><label class="form-label">Phone *</label><input name="phone" class="form-control" placeholder="07XXXXXXXX" value="<?= e($_POST['phone']??'') ?>" required></div>
-        <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control" value="<?= e($_POST['email']??'') ?>"></div>
+        <div class="col-md-6">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control" value="<?= e($_POST['email']??'') ?>">
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">Optional, for records. Portal login isn't tied to this — a one-time login is generated and sent by SMS instead</div>
+        </div>
         <div class="col-md-6"><label class="form-label">Address</label><input name="address" class="form-control" value="<?= e($_POST['address']??'') ?>"></div>
       </div>
     </div>
@@ -111,5 +136,6 @@ include __DIR__ . '/../includes/header.php'; ?>
     <button type="submit" class="btn-dmc"><i class="bi bi-person-check"></i> Register Patient</button>
   </div>
 </form>
+<?php endif; ?>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -12,6 +12,7 @@ function isLoggedIn(): bool { return isset($_SESSION['user_id']); }
 
 function requireLogin(string $role = ''): void {
     if (!isLoggedIn()) { header('Location: /dmc/index.php'); exit; }
+    enforcePasswordChange();
     if ($role && $_SESSION['role'] !== $role && $_SESSION['role'] !== 'admin') {
         header('Location: /dmc/index.php?error=access_denied'); exit;
     }
@@ -20,6 +21,14 @@ function requireLogin(string $role = ''): void {
 function requireRoles(array $roles): void {
     if (!isLoggedIn() || !in_array($_SESSION['role'], $roles)) {
         header('Location: /dmc/index.php?error=access_denied'); exit;
+    }
+    enforcePasswordChange();
+}
+
+function enforcePasswordChange(): void {
+    $exempt = ['change_password.php', 'ajax.php'];
+    if (!empty($_SESSION['user']['must_change_password']) && !in_array(basename($_SERVER['SCRIPT_NAME']), $exempt, true)) {
+        header('Location: /dmc/change_password.php'); exit;
     }
 }
 
@@ -72,6 +81,13 @@ function methodLabel(string $m): string {
 function timeF(string $t): string { return $t ? date('h:i A', strtotime($t)) : '—'; }
 function dtF(string $dt): string  { return $dt ? date('d M Y, h:i A', strtotime($dt)) : '—'; }
 function age(string $dob): int    { return (int)date_diff(date_create($dob), date_create('today'))->y; }
+
+function generateTempPassword(int $length = 8): string {
+    $chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid confusion when read aloud
+    $pass  = '';
+    for ($i = 0; $i < $length; $i++) $pass .= $chars[random_int(0, strlen($chars) - 1)];
+    return $pass;
+}
 
 function generateNo(string $prefix, string $table, string $column): string {
     $year = date('Y');

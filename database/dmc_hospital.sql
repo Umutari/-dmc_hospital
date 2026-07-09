@@ -26,6 +26,7 @@ CREATE TABLE users (
     email VARCHAR(100) UNIQUE NOT NULL,
     phone VARCHAR(20),
     password VARCHAR(255) NOT NULL,
+    must_change_password TINYINT(1) DEFAULT 0,
     role ENUM('admin','doctor','nurse','receptionist','pharmacist','accountant','lab_technician','patient') NOT NULL,
     is_active TINYINT(1) DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
