@@ -40,11 +40,11 @@ $u = currentUser();
 $activeAdmissions = (int)scalar("SELECT COUNT(*) FROM admissions WHERE status='active'");
 $vitalsToday      = (int)scalar("SELECT COUNT(*) FROM vital_signs WHERE DATE(recorded_at)=CURDATE()");
 $vitalsMonth      = (int)scalar("SELECT COUNT(*) FROM vital_signs WHERE MONTH(recorded_at)=MONTH(NOW()) AND YEAR(recorded_at)=YEAR(NOW())");
-$discharged       = (int)scalar("SELECT COUNT(*) FROM admissions WHERE status='discharged' AND MONTH(updated_at)=MONTH(NOW())");
+$discharged       = (int)scalar("SELECT COUNT(*) FROM admissions WHERE status='discharged' AND MONTH(discharged_at)=MONTH(NOW())");
 
 /* current active admissions */
 $admissions = rows("SELECT adm.*, CONCAT(p.first_name,' ',p.last_name) AS pname, p.patient_no,
-    r.room_number, rt.name AS room_type
+    r.room_no, rt.name AS room_type
     FROM admissions adm
     JOIN patients p ON adm.patient_id=p.id
     LEFT JOIN rooms r ON adm.room_id=r.id
@@ -134,7 +134,7 @@ include __DIR__ . '/../includes/header.php'; ?>
               <div style="font-weight:600"><?= e($adm['pname']) ?></div>
               <div style="font-size:10px;color:var(--muted)"><?= e($adm['patient_no']) ?></div>
             </td>
-            <td><?= e($adm['room_number']??'—') ?> <?php if ($adm['room_type']): ?><span style="font-size:10px;color:var(--muted)">(<?= e($adm['room_type']) ?>)</span><?php endif; ?></td>
+            <td><?= e($adm['room_no']??'—') ?> <?php if ($adm['room_type']): ?><span style="font-size:10px;color:var(--muted)">(<?= e($adm['room_type']) ?>)</span><?php endif; ?></td>
             <td style="font-size:11px"><?= dateF($adm['admitted_at']) ?></td>
             <td><span class="badge bg-light text-dark"><?= (int)floor((time()-strtotime($adm['admitted_at']))/86400) ?>d</span></td>
             <td><a href="/dmc/nurse/vitals.php?patient_id=<?= $adm['patient_id'] ?>" class="btn btn-sm btn-outline-primary" style="font-size:11px">Vitals</a></td>
