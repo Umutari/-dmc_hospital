@@ -45,7 +45,6 @@ $menus = [
         ['icon'=>'speedometer2','label'=>'Dashboard','url'=>'/dmc/accountant/index.php'],
         ['icon'=>'receipt','label'=>'Invoices','url'=>'/dmc/accountant/invoices.php'],
         ['icon'=>'credit-card','label'=>'Payments','url'=>'/dmc/accountant/payments.php'],
-        ['icon'=>'wallet2','label'=>'Topup Money','url'=>'/dmc/accountant/topup.php'],
         ['icon'=>'shield-check','label'=>'Insurance Claims','url'=>'/dmc/accountant/insurance.php'],
         ['icon'=>'people','label'=>'Patients','url'=>'/dmc/accountant/patients.php'],
         ['icon'=>'bar-chart-line','label'=>'Financial Reports','url'=>'/dmc/reports/financial.php'],
