@@ -5,7 +5,7 @@ $pageTitle = 'Nurse Dashboard';
 $uid = currentUserId();
 
 $stats = [
-    'today_patients'  => scalar("SELECT COUNT(DISTINCT patient_id) FROM appointments WHERE appointment_date=CURDATE() AND status IN('confirmed','completed')"),
+    'today_patients'  => scalar("SELECT COUNT(DISTINCT patient_id) FROM appointments WHERE appointment_date=CURDATE() AND status IN('scheduled','confirmed','completed')"),
     'vitals_today'    => scalar("SELECT COUNT(*) FROM vital_signs WHERE DATE(recorded_at)=CURDATE()"),
     'admissions'      => scalar("SELECT COUNT(*) FROM admissions WHERE status='active'"),
     'pending_appts'   => scalar("SELECT COUNT(*) FROM appointments WHERE appointment_date=CURDATE() AND status='scheduled'"),
