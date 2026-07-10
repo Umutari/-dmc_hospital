@@ -92,7 +92,9 @@ include __DIR__ . '/../includes/header.php'; ?>
             <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Ordered by</span><span>Dr. <?= e($order['dname']) ?></span></div>
             <?php if ($order['dept_name']): ?><div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Department</span><span><?= e($order['dept_name']) ?></span></div><?php endif; ?>
             <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Order No</span><span style="font-family:monospace;font-size:11px"><?= e($order['order_no']) ?></span></div>
-            <div class="d-flex justify-content-between"><span style="color:var(--muted)">Completed</span><span><?= dtF($order['updated_at']) ?></span></div>
+            <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Completed</span><span><?= dtF($order['updated_at']) ?></span></div>
+            <?php $pay = labOrderPaymentStatus($order['id']); ?>
+            <div class="d-flex justify-content-between"><span style="color:var(--muted)">Payment</span><span class="badge-status <?= $pay['class'] ?>"><?= e($pay['label']) ?></span></div>
           </div>
           <?php if ($order['notes']): ?>
           <div class="mt-3 p-2 rounded" style="background:#fff8e1;border:1px solid #ffe082;font-size:12px">
@@ -221,25 +223,28 @@ include __DIR__ . '/../includes/header.php'; ?>
           <th>Patient No</th>
           <th>Ordered By</th>
           <th>Tests</th>
+          <th>Payment</th>
           <th>Completed</th>
           <th>Action</th>
         </tr>
       </thead>
       <tbody>
       <?php if ($results): foreach ($results as $r): ?>
+      <?php $pay = labOrderPaymentStatus($r['id']); ?>
       <tr>
         <td style="font-family:monospace;font-size:11px;font-weight:600"><?= e($r['order_no']) ?></td>
         <td><?= e($r['pname']) ?></td>
         <td style="font-size:11px;color:var(--muted)"><?= e($r['patient_no']) ?></td>
         <td>Dr. <?= e($r['dname']) ?></td>
         <td><span class="badge bg-light text-dark"><?= $r['test_count'] ?> test<?= $r['test_count']!=1?'s':'' ?></span></td>
+        <td><span class="badge-status <?= $pay['class'] ?>"><?= e($pay['label']) ?></span></td>
         <td style="font-size:11px"><?= dtF($r['updated_at']) ?></td>
         <td>
           <a href="?id=<?= $r['id'] ?>" class="btn btn-sm btn-outline-primary" style="font-size:11px"><i class="bi bi-eye me-1"></i>View</a>
         </td>
       </tr>
       <?php endforeach; else: ?>
-      <tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-flask me-2"></i>No completed results found for this period.</td></tr>
+      <tr><td colspan="8" class="text-center text-muted py-4"><i class="bi bi-flask me-2"></i>No completed results found for this period.</td></tr>
       <?php endif; ?>
       </tbody>
     </table>

@@ -128,6 +128,15 @@ function applyInsuranceToInvoice(int $invId, int $patientId, float $total): floa
     return $patAmount;
 }
 
+/* ── Lab order payment status ── */
+function labOrderPaymentStatus(int $labOrderId): array {
+    $inv = row("SELECT status, paid, balance FROM invoices WHERE lab_order_id=? ORDER BY id DESC LIMIT 1", [$labOrderId]);
+    if (!$inv) return ['label' => 'No Charge', 'class' => 'bs-draft'];
+    if ((float)$inv['balance'] <= 0.009) return ['label' => 'Paid', 'class' => 'bs-paid'];
+    if ((float)$inv['paid'] > 0) return ['label' => 'Partially Paid', 'class' => 'bs-partial'];
+    return ['label' => 'Unpaid', 'class' => 'bs-cancelled'];
+}
+
 /* ── Setting helper ── */
 function setting(string $key, string $default = ''): string {
     static $cache = [];
@@ -201,6 +210,13 @@ function sendAppointmentSMS(array $patient, array $appt): void {
 function sendPaymentSMS(array $patient, array $payment): void {
     $msg = "DMC Hospital\nPayment received!\nAmount: " . money($payment['amount']) .
            "\nInvoice: {$payment['invoice_no']}\nRef: {$payment['payment_no']}\nThank you, {$patient['first_name']}!";
+    sendSMS($patient['phone'], $msg);
+}
+
+function sendLabResultsSMS(array $patient, array $order): void {
+    if (empty($patient['phone'])) return;
+    $msg = "DMC Hospital\nDear {$patient['first_name']}, your lab results for order {$order['order_no']} are ready.\n" .
+           "Please visit us or contact your doctor to discuss them.\nCall: 0782 749 660";
     sendSMS($patient['phone'], $msg);
 }
 

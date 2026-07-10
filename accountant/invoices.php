@@ -117,7 +117,7 @@ include __DIR__ . '/../includes/header.php'; ?>
     <div class="dmc-card">
       <div class="dmc-card-title">Common Services</div>
       <div style="font-size:12px">
-        <?php $services = [['Consultation',5000],['Lab Test',3000],['X-Ray',8000],['Ultrasound',15000],['Admission/Day',20000],['Medicine',0],['Procedure',10000],['Nursing Care',5000]]; ?>
+        <?php $services = [['Consultation',5000],['X-Ray',8000],['Ultrasound',15000],['Admission/Day',20000],['Medicine',0],['Procedure',10000],['Nursing Care',5000]]; ?>
         <?php foreach ($services as [$name,$price]): ?>
         <div class="d-flex justify-content-between p-2 mb-1 rounded" style="background:var(--bg);cursor:pointer" onclick="addItem('<?= $name ?>',<?= $price ?>)">
           <span><?= $name ?></span>

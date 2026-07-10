@@ -222,6 +222,9 @@ function updateLabResult(array $b): void {
                       [$item['lab_order_id']]);
     if ($pending == 0) {
         execute("UPDATE lab_orders SET status='completed' WHERE id=?", [$item['lab_order_id']]);
+        $order = row("SELECT lo.order_no, p.first_name, p.phone
+                      FROM lab_orders lo JOIN patients p ON lo.patient_id=p.id WHERE lo.id=?", [$item['lab_order_id']]);
+        if ($order) sendLabResultsSMS($order, $order);
     }
     audit('lab_result', 'lab_order_items', $itemId, "Result entered: $result");
     jsonOk();

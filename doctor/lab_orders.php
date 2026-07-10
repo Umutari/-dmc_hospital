@@ -25,8 +25,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $labTotal = array_sum(array_column($testData, 'price'));
             $invNo = generateNo('DMC-INV', 'invoices', 'invoice_no');
             $invId = execute(
-                "INSERT INTO invoices (invoice_no,patient_id,total,paid,balance,status,notes,created_by) VALUES (?,?,?,0,?,?,?,?)",
-                [$invNo, $patientId, $labTotal, $labTotal, 'issued', "Lab order $no", $uid]
+                "INSERT INTO invoices (invoice_no,patient_id,lab_order_id,total,paid,balance,status,notes,created_by) VALUES (?,?,?,?,0,?,?,?,?)",
+                [$invNo, $patientId, $ordId, $labTotal, $labTotal, 'issued', "Lab order $no", $uid]
             );
             foreach ($testData as $t) {
                 execute(

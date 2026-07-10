@@ -38,7 +38,9 @@ include __DIR__ . '/../includes/header.php'; ?>
         <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Patient No</span><?= e($single['patient_no']) ?></div>
         <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Doctor</span>Dr. <?= e($single['dname']) ?></div>
         <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Ordered</span><?= dtF($single['created_at']) ?></div>
-        <div class="d-flex justify-content-between"><span style="color:var(--muted)">Status</span><span class="badge-status bs-<?= str_replace('_','-',$single['status']) ?>"><?= ucfirst(str_replace('_',' ',$single['status'])) ?></span></div>
+        <div class="d-flex justify-content-between mb-1"><span style="color:var(--muted)">Status</span><span class="badge-status bs-<?= str_replace('_','-',$single['status']) ?>"><?= ucfirst(str_replace('_',' ',$single['status'])) ?></span></div>
+        <?php $pay = labOrderPaymentStatus($single['id']); ?>
+        <div class="d-flex justify-content-between"><span style="color:var(--muted)">Payment</span><span class="badge-status <?= $pay['class'] ?>"><?= e($pay['label']) ?></span></div>
       </div>
     </div>
   </div>
@@ -81,19 +83,21 @@ include __DIR__ . '/../includes/header.php'; ?>
   </div>
   <div class="table-responsive">
     <table class="table dmc-table mb-0">
-      <thead><tr><th>Order No</th><th>Patient</th><th>Doctor</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+      <thead><tr><th>Order No</th><th>Patient</th><th>Doctor</th><th>Status</th><th>Payment</th><th>Date</th><th>Action</th></tr></thead>
       <tbody>
       <?php foreach ($list as $ord): ?>
+      <?php $pay = labOrderPaymentStatus($ord['id']); ?>
       <tr>
         <td style="font-family:monospace;font-size:11px"><?= e($ord['order_no']) ?></td>
         <td><?= e($ord['pname']) ?></td>
         <td>Dr. <?= e($ord['dname']) ?></td>
         <td><span class="badge-status bs-<?= str_replace('_','-',$ord['status']) ?>"><?= ucfirst(str_replace('_',' ',$ord['status'])) ?></span></td>
+        <td><span class="badge-status <?= $pay['class'] ?>"><?= e($pay['label']) ?></span></td>
         <td style="font-size:11px"><?= dtF($ord['created_at']) ?></td>
         <td><a href="?id=<?= $ord['id'] ?>" class="btn btn-sm btn-outline-primary" style="font-size:11px">View</a></td>
       </tr>
       <?php endforeach; ?>
-      <?php if (!$list): ?><tr><td colspan="6" class="text-center text-muted py-4">No orders found</td></tr><?php endif; ?>
+      <?php if (!$list): ?><tr><td colspan="7" class="text-center text-muted py-4">No orders found</td></tr><?php endif; ?>
       </tbody>
     </table>
   </div>

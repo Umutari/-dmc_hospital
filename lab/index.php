@@ -45,7 +45,11 @@ include __DIR__ . '/../includes/header.php'; ?>
         <span style="font-size:11px;color:var(--muted);margin-left:8px"><?= e($ord['patient_no']) ?></span>
         <div style="font-size:11.5px;color:var(--muted)"><?= e($ord['order_no']) ?> · Dr. <?= e($ord['dname']) ?> · <?= dtF($ord['created_at']) ?></div>
       </div>
-      <span class="badge-status bs-<?= $ord['status'] ?>"><?= ucfirst(str_replace('_',' ',$ord['status'])) ?></span>
+      <div class="d-flex gap-1">
+        <?php $pay = labOrderPaymentStatus($ord['id']); ?>
+        <span class="badge-status <?= $pay['class'] ?>"><?= e($pay['label']) ?></span>
+        <span class="badge-status bs-<?= $ord['status'] ?>"><?= ucfirst(str_replace('_',' ',$ord['status'])) ?></span>
+      </div>
     </div>
     <div class="row g-2">
       <?php foreach ($items as $item): ?>
